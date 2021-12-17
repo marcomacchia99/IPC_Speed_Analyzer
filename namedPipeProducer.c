@@ -12,8 +12,6 @@
 #include <signal.h>
 #include <time.h>
 
-#include <sys/statvfs.h>
-
 #define SIZE 10 * 1000000
 
 int fd_pipe;
