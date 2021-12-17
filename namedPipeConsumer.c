@@ -14,19 +14,10 @@
 
 int fd_pipe;
 char buffer[SIZE] = "";
-int flag_writing_complete = 0;
 int max_write_size;
 
 pid_t producer_pid;
 
-void writing_complete(int sig)
-{
-    if (sig == SIGUSR1)
-    {
-
-        flag_writing_complete = 1;
-    }
-}
 
 void receive_array()
 {
@@ -80,9 +71,6 @@ void receive_array()
 
 int main(int argc, char *argv[])
 {
-
-    //the process must handle SIGUSR1 signal
-    signal(SIGUSR1, writing_complete);
 
     //defining fifo path
     char *fifo_named_pipe = "/tmp/named_pipe";
