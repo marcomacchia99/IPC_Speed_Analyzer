@@ -12,7 +12,7 @@
 #include <signal.h>
 #include <time.h>
 
-#define SIZE 10 * 1000000
+#define SIZE 100 * 1000000
 
 int fd_pipe;
 char buffer[SIZE] = "";

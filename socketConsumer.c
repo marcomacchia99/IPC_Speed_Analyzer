@@ -9,9 +9,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <semaphore.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <errno.h>
 
 #define SIZE 100 * 1000000
 
@@ -25,33 +28,47 @@ int max_write_size;
 
 pid_t producer_pid;
 
+sem_t mutex;
+
+//variables for select function
+struct timeval timeout;
+fd_set readfds;
+
 void receive_array()
 {
-    //variables for select function
-    struct timeval timeout;
-    fd_set readfds;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 1000;
 
     int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
-        FD_ZERO(&readfds);
-        //add the selected file descriptor to the selected fd_set
-        FD_SET(fd_socket, &readfds);
-        while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0)
+
+        int sel;
+        do
         {
-            ;
-        }
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 1000;
+            FD_ZERO(&readfds);
+            //add the selected file descriptor to the selected fd_set
+            FD_SET(fd_socket, &readfds);
+            sel = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+        } while (sel <= 0);
+        // {
+        //     printf("select\n");
+        //     ;
+        // }
 
         //read random string from producer
         char segment[max_write_size];
-        // read(fd_socket, segment, max_write_size);
-        printf("read: %ld\n", read(fd_socket, segment, max_write_size));
+
+        // sem_wait(&mutex);
+        // printf("%d - read: %ld\n", i, read(fd_socket, segment, max_write_size));
+        read(fd_socket, segment, max_write_size);
+
+        // sem_post(&mutex);
 
         //add every segment to entire buffer
         if (i == cycles - 1)
         {
+
             int j = 0;
             while ((i * max_write_size + j) < SIZE)
             {
@@ -61,11 +78,10 @@ void receive_array()
         }
         else
         {
-
             strcat(buffer, segment);
         }
     }
-    //     FILE *file = fopen("cons.txt", "w");
+    // FILE *file = fopen("cons.txt", "w");
     // fprintf(file, "%s", buffer);
     // fflush(file);
     // fclose(file);
@@ -108,7 +124,23 @@ int main(int argc, char *argv[])
     }
 
     //receiving pid from producer
+    int sel;
+    do
+    {
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 1000;
+        FD_ZERO(&readfds);
+        //add the selected file descriptor to the selected fd_set
+        FD_SET(fd_socket, &readfds);
+        sel = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+    } while (sel <= 0);
     read(fd_socket, &producer_pid, sizeof(producer_pid));
+
+    //initialize semaphore for coordinating reading and writing
+    // if (sem_init(&mutex, 1, 1) == 1)
+    // {
+    //     perror("semaphore initialization failed");
+    // }
 
     //defining max size for operations and files
 
@@ -117,7 +149,8 @@ int main(int argc, char *argv[])
     int receive_buffer_size;
     getsockopt(fd_socket, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, &socklen);
     getsockopt(fd_socket, SOL_SOCKET, SO_RCVBUF, &receive_buffer_size, &socklen);
-    max_write_size = send_buffer_size<=receive_buffer_size? send_buffer_size: receive_buffer_size;
+    max_write_size = send_buffer_size <= receive_buffer_size ? send_buffer_size : receive_buffer_size;
+    max_write_size = 65000;
 
     //receive array from producer
     receive_array();
@@ -127,6 +160,8 @@ int main(int argc, char *argv[])
 
     //close and delete fifo
     close(fd_socket);
+
+    printf("cons %ld\n", strlen(buffer));
 
     return 0;
 }

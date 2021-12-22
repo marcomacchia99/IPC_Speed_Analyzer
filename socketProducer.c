@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <semaphore.h>
 #include <time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -26,6 +28,8 @@ struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
 int transfer_time;
 int max_write_size;
+
+sem_t mutex;
 
 void random_string_generator()
 {
@@ -49,11 +53,12 @@ void transfer_complete(int sig)
 
 void send_array()
 {
-    // FILE * file = fopen("prod.txt","w");
-    // fprintf(file,"%s",buffer);
+    // FILE *file = fopen("prod.txt", "w");
+    // fprintf(file, "%s", buffer);
     // fflush(file);
     // fclose(file);
     int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
+    //sending data divided in blocks of max_write_size size
     for (int i = 0; i < cycles; i++)
     {
         char segment[max_write_size];
@@ -61,8 +66,13 @@ void send_array()
         {
             segment[j] = buffer[i * max_write_size + j];
         }
-        printf("write: %ld\n",write(fd_socket_new, segment, max_write_size));
-        // write(fd_socket_new, segment, max_write_size);
+        // while(sem_trywait(&mutex)==0){
+        //     usleep(1000);
+        // }
+        // sem_wait(&mutex);
+        // printf("%d - write: %ld\n", i, write(fd_socket_new, segment, max_write_size));
+        write(fd_socket_new, segment, max_write_size);
+        // sem_post(&mutex);
     }
 }
 
@@ -117,6 +127,11 @@ int main(int argc, char *argv[])
     pid_t pid = getpid();
     write(fd_socket_new, &pid, sizeof(pid));
 
+    //initialize semaphore for coordinating reading and writing
+    if (sem_init(&mutex, 1, 1) == 1)
+    {
+        perror("semaphore initialization failed");
+    }
 
     //defining max size for operations and files
 
@@ -125,8 +140,8 @@ int main(int argc, char *argv[])
     int receive_buffer_size;
     getsockopt(fd_socket_new, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, &socklen);
     getsockopt(fd_socket_new, SOL_SOCKET, SO_RCVBUF, &receive_buffer_size, &socklen);
-    max_write_size = send_buffer_size<=receive_buffer_size? send_buffer_size: receive_buffer_size;
-
+    max_write_size = send_buffer_size <= receive_buffer_size ? send_buffer_size : receive_buffer_size;
+    max_write_size = 65000;
     //generating random strings
     printf("generating random array...");
     random_string_generator();
@@ -150,5 +165,6 @@ int main(int argc, char *argv[])
     close(fd_socket);
     close(fd_socket_new);
 
+    printf("prod %ld\n", strlen(buffer));
     return 0;
 }
