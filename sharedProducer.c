@@ -15,7 +15,7 @@
 int main(int argc, char *argv[])
 {
     const char *shm_name = "/AOS";
-    const int SIZE = 4096;
+    const int SIZE = 100 * 1000000;
     const char *message[] = {"This ", "is ", "about ", "shared ", "memory\n"};
     int i, shm_fd;
     void *ptr;
