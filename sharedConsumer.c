@@ -12,19 +12,29 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 
+#define SIZE 100 * 1000000
+//const int SIZE = 100 * 1000000;
+
+typedef struct
+{
+    char file_path[SIZE];
+    int in;
+    int out;
+
+} Buffer;
+
 int main(int argc, char *argv[])
 {
     const char *shm_name = "/AOS";
-    const int SIZE = 100 * 1000000;
     int i, shm_fd;
-    void *ptr;
+    Buffer *ptr;
     shm_fd = shm_open(shm_name, O_RDONLY, 0666);
     if (shm_fd == 1)
     {
         printf("Shared memory segment failed\n");
         exit(1);
     }
-    ptr = mmap(0, SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
+    ptr = (Buffer*)mmap(0, SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
     if (ptr == MAP_FAILED)
     {
         printf("Map failed\n");
