@@ -32,11 +32,13 @@ sem_t mutex;
 
 void random_string_generator()
 {
+    printf("generating random array...");
     for (int i = 0; i < SIZE; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
     }
+    printf("\n\nrandom array generated!\n\n");
 }
 
 void transfer_complete(int sig)
@@ -142,9 +144,9 @@ int main(int argc, char *argv[])
     max_write_size = send_buffer_size <= receive_buffer_size ? send_buffer_size : receive_buffer_size;
     max_write_size = 65000;
     //generating random strings
-    printf("generating random array...");
+
     random_string_generator();
-    printf("\n\nrandom array generated!\n\n");
+    
 
     //get time of when the transfer has started
     gettimeofday(&start_time, NULL);
