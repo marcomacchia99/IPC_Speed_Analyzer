@@ -9,12 +9,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <sys/mman.h>
 #include <semaphore.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <errno.h>
 
 #define SIZE 100 * 1000000
 

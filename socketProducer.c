@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <sys/mman.h>
 #include <semaphore.h>
 #include <time.h>
 #include <sys/socket.h>
