@@ -38,6 +38,18 @@ get_dimension(){
     done
 }
 
+get_circular_dimension(){
+    echo
+    read -p "        Enter the circular buffer size in KB  (min 1KB - max 10KB): " CIRCULAR_SIZE
+    echo
+
+    while [ "$CIRCULAR_SIZE" -gt 10 ] || [ "$CIRCULAR_SIZE" -lt 1 ] || [ -z "$CIRCULAR_SIZE" ] || [[ ! "$CIRCULAR_SIZE" =~ ^[0-9]+$ ]] ;do 
+    echo
+    read -p "        Enter the circular buffer size in KB  (min 1KB - max 10KB): " CIRCULAR_SIZE
+    echo
+    done
+}
+
 display_instructions(){
 
 
@@ -96,15 +108,13 @@ case $CHOICE in
     ;;
 
     3)
-    # echo
-    # read -p "Enter the: " CHOICE
-    # echo
     ./socketProducer ${SIZE} ${MODE} 5555 & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 5555
     CHOICE=-100
     ;;
 
     4)
-    ./sharedProducer ${SIZE} ${MODE} & ./sharedConsumer ${SIZE} ${MODE}
+    get_circular_dimension
+    ./sharedProducer ${SIZE} ${MODE} ${CIRCULAR_SIZE} & ./sharedConsumer ${SIZE} ${MODE} ${CIRCULAR_SIZE}
     CHOICE=-100
     ;;
 

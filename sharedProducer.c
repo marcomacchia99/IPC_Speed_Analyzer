@@ -13,7 +13,6 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 
-#define CIRCULAR_size 10 * 1000
 #define BLOCK_NUM 100
 
 //shared memory name
@@ -27,7 +26,7 @@ char *shm_ptr;
 struct timeval start_time, stop_time;
 //flag if the consumer received all the data
 int flag_transfer_complete = 0;
-//amount of transfer milliseconds 
+//amount of transfer milliseconds
 int transfer_time;
 
 //semaphores used for circular buffer and shared memory
@@ -41,6 +40,9 @@ int size;
 
 //memory mode
 int mode;
+
+//circular buffer size
+int circular_size;
 
 void transfer_complete(int sig)
 {
@@ -65,7 +67,7 @@ void random_string_generator(char buffer[])
 void send_array(char buffer[])
 {
     //calculate size of each block of the circular buffer
-    int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
+    int block_size = (circular_size / BLOCK_NUM) + (circular_size % BLOCK_NUM != 0 ? 1 : 0);
 
     //number of cycles needed to send all the data
     int cycles = size / block_size + (size % block_size != 0 ? 1 : 0);
@@ -120,6 +122,14 @@ int main(int argc, char *argv[])
     }
     mode = atoi(argv[2]);
 
+    //getting circular budffer size from console
+    if (argc < 4)
+    {
+        fprintf(stderr, "Producer - ERROR, no circular size provided\n");
+        exit(0);
+    }
+    circular_size = atoi(argv[3]) * 1000;
+
     //randomizing seed for random string generator
     srand(time(NULL));
 
@@ -143,18 +153,20 @@ int main(int argc, char *argv[])
     }
 
     //setting shared memory size
-    if (ftruncate(shm_fd, CIRCULAR_size) == -1)
+    if (ftruncate(shm_fd, circular_size) == -1)
     {
         perror("producer - ftruncate failure");
         exit(1);
     }
 
     //map shared memory
-    if ((shm_ptr = mmap(0, CIRCULAR_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
+    if ((shm_ptr = mmap(0, circular_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
         perror("producer - map failed");
         exit(1);
     }
+    //original shared memory pointer, used with munmap
+    char *original_shm_ptr = shm_ptr;
 
     //initialize circular buffer semaphores
     if ((mutex = sem_open("mutex", O_CREAT, 0644, 1)) == MAP_FAILED)
@@ -247,7 +259,7 @@ int main(int argc, char *argv[])
     sem_unlink("not_full");
 
     //deallocate and close shared memory
-    if (munmap(shm_ptr, CIRCULAR_size) == -1)
+    if (munmap(original_shm_ptr, circular_size) == -1)
     {
         perror("Error unmapping shared memory:");
         exit(1);

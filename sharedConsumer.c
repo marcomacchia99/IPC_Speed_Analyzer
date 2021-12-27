@@ -13,7 +13,6 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 
-#define CIRCULAR_size 10 * 1000
 #define BLOCK_NUM 100
 
 //shared memory name
@@ -38,11 +37,13 @@ int size;
 //memory mode
 int mode;
 
+//circular buffer size
+int circular_size;
 
 void receive_array(char buffer[])
 {
     //calculate size of each block of the circular buffer
-    int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
+    int block_size = (circular_size / BLOCK_NUM) + (circular_size % BLOCK_NUM != 0 ? 1 : 0);
 
     //number of cycles needed to receive all the data
     int cycles = size / block_size + (size % block_size != 0 ? 1 : 0);
@@ -107,6 +108,14 @@ int main(int argc, char *argv[])
     }
     mode = atoi(argv[2]);
 
+    //getting circular budffer size from console
+    if (argc < 4)
+    {
+        fprintf(stderr, "Producer - ERROR, no circular size provided\n");
+        exit(0);
+    }
+    circular_size = atoi(argv[3]) * 1000;
+
     //receiving pid from producer
     char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
     mkfifo(fifo_shared_producer_pid, 0666);
@@ -145,11 +154,13 @@ int main(int argc, char *argv[])
     }
 
     //map shared memory
-    if ((shm_ptr = mmap(NULL, CIRCULAR_size, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
+    if ((shm_ptr = mmap(NULL, circular_size, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
         perror("consumer - map failed");
         exit(1);
     }
+    //original shared memory pointer, used with munmap
+    char *original_shm_ptr = shm_ptr;
 
     //initialize circular buffer semaphores
     if ((mutex = sem_open("mutex", 0, 0644, 1)) == MAP_FAILED)
@@ -210,9 +221,8 @@ int main(int argc, char *argv[])
     sem_close(not_full);
     sem_unlink("not_full");
 
-
     //deallocate and close shared memory
-    if (munmap(shm_ptr, CIRCULAR_size) == -1)
+    if (munmap(original_shm_ptr, circular_size) == -1)
     {
         perror("Error unmapping shared memory:");
         exit(1);
