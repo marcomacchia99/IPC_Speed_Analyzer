@@ -14,13 +14,11 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-
 int fd_socket;
 int portno;
 struct sockaddr_in server_addr;
 struct hostent *server;
 
-char buffer[size] = "";
 int max_write_size;
 
 pid_t producer_pid;
@@ -33,7 +31,7 @@ fd_set readfds;
 
 int size;
 
-void receive_array()
+void receive_array(char buffer[])
 {
 
     int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
@@ -95,6 +93,14 @@ int main(int argc, char *argv[])
         exit(0);
     }
     size = atoi(argv[1]) * 1000000;
+
+    //increasing stack limit to let the buffer be instantieted correctly
+    struct rlimit limit;
+    limit.rlim_cur = 105 * 1000000;
+    limit.rlim_max = 105 * 1000000;
+    setrlimit(RLIMIT_STACK, &limit);
+
+    char buffer[size];
 
     if (argc < 4)
     {
@@ -159,7 +165,7 @@ int main(int argc, char *argv[])
     max_write_size = 65000;
 
     //receive array from producer
-    receive_array();
+    receive_array(buffer);
 
     //transfer complete. Sends signal to notify the producer
     kill(producer_pid, SIGUSR1);

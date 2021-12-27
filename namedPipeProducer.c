@@ -13,7 +13,7 @@
 #include <time.h>
 
 int fd_pipe;
-char buffer[size] = "";
+
 struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
 int transfer_time;
@@ -21,7 +21,8 @@ int max_write_size;
 
 int size;
 
-void random_string_generator()
+
+void random_string_generator(char buffer[])
 {
     // printf("generating random array...");
     for (int i = 0; i < size; i++)
@@ -43,7 +44,7 @@ void transfer_complete(int sig)
     }
 }
 
-void send_array()
+void send_array(char buffer[])
 {
     // FILE * file = fopen("prod.txt","w");
     // fprintf(file,"%s",buffer);
@@ -71,7 +72,15 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Producer - ERROR, no size provided\n");
         exit(0);
     }
-    size = atoi(argv[1])* 1000000;
+    size = atoi(argv[1]) * 1000000;
+
+    //increasing stack limit to let the buffer be instantieted correctly
+    struct rlimit limit;
+    limit.rlim_cur = 105 * 1000000;
+    limit.rlim_max = 105 * 1000000;
+    setrlimit(RLIMIT_STACK, &limit);
+    
+    char buffer[size];
 
     //randomizing seed for random string generator
     srand(time(NULL));
@@ -98,19 +107,19 @@ int main(int argc, char *argv[])
     fd_pipe = open(fifo_named_pipe, O_WRONLY);
 
     //defining max size for operations and files
-    struct rlimit limit;
+
     getrlimit(RLIMIT_NOFILE, &limit);
     max_write_size = limit.rlim_max;
     fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size);
 
     //generating random string
-    random_string_generator();
+    random_string_generator(buffer);
 
     //get time of when the transfer has started
     gettimeofday(&start_time, NULL);
 
     //writing buffer on pipe
-    send_array();
+    send_array(buffer);
 
     while (flag_transfer_complete == 0)
     {

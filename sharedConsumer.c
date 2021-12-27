@@ -16,8 +16,6 @@
 #define CIRCULAR_size 10 * 1000
 #define BLOCK_NUM 100
 
-char buffer[size] = "";
-
 const char *shm_name = "/AOS";
 int shm_fd;
 char *ptr;
@@ -35,7 +33,7 @@ fd_set readfds;
 
 int size;
 
-void receive_array()
+void receive_array(char buffer[])
 {
 
     int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
@@ -93,6 +91,14 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
 
+    //increasing stack limit to let the buffer be instantieted correctly
+    struct rlimit limit;
+    limit.rlim_cur = 105 * 1000000;
+    limit.rlim_max = 105 * 1000000;
+    setrlimit(RLIMIT_STACK, &limit);
+
+    char buffer[size];
+
     char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
     mkfifo(fifo_shared_producer_pid, 0666);
     int fd_pid = open(fifo_shared_producer_pid, O_RDONLY);
@@ -140,7 +146,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    receive_array();
+    receive_array(buffer);
 
     //transfer complete. Sends signal to notify the producer
     kill(producer_pid, SIGUSR1);

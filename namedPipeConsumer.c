@@ -11,15 +11,13 @@
 #include <signal.h>
 
 int fd_pipe;
-char buffer[size] = "";
 int max_write_size;
 
 pid_t producer_pid;
 
 int size;
 
-
-void receive_array()
+void receive_array(char buffer[])
 {
     //variables for select function
     struct timeval timeout;
@@ -46,9 +44,10 @@ void receive_array()
         //add every segment to entire buffer
         if (i == cycles - 1)
         {
-            int j=0;
-            while((i * max_write_size + j) < size){
-                buffer[i*max_write_size+j]=segment[j];
+            int j = 0;
+            while ((i * max_write_size + j) < size)
+            {
+                buffer[i * max_write_size + j] = segment[j];
                 j++;
             }
         }
@@ -77,7 +76,15 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Consumer - ERROR, no size provided\n");
         exit(0);
     }
-    size = atoi(argv[1])* 1000000;
+    size = atoi(argv[1]) * 1000000;
+
+    //increasing stack limit to let the buffer be instantieted correctly
+    struct rlimit limit;
+    limit.rlim_cur = 105 * 1000000;
+    limit.rlim_max = 105 * 1000000;
+    setrlimit(RLIMIT_STACK, &limit);
+    
+    char buffer[size];
 
     //defining fifo path
     char *fifo_named_pipe = "/tmp/named_pipe";
@@ -97,13 +104,12 @@ int main(int argc, char *argv[])
     fd_pipe = open(fifo_named_pipe, O_RDONLY);
 
     //defining max size for operations and files
-    struct rlimit limit;
     getrlimit(RLIMIT_NOFILE, &limit);
     max_write_size = limit.rlim_max;
     fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size);
 
     //receive array from producer
-    receive_array();
+    receive_array(buffer);
 
     //transfer complete. Sends signal to notify the producer
     kill(producer_pid, SIGUSR1);

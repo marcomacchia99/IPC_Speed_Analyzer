@@ -16,11 +16,9 @@
 #define CIRCULAR_size 10 * 1000
 #define BLOCK_NUM 100
 
-char buffer[size] = "";
 const char *shm_name = "/AOS";
 int shm_fd;
 char *ptr;
-int buffer_index = 0;
 
 struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
@@ -43,7 +41,7 @@ void transfer_complete(int sig)
     }
 }
 
-void random_string_generator()
+void random_string_generator(char buffer[])
 {
     // printf("generating random array...");
     for (int i = 0; i < size; i++)
@@ -54,7 +52,7 @@ void random_string_generator()
     // printf("\n\nrandom array generated!\n\n");
 }
 
-void send_array()
+void send_array(char buffer[])
 {
     // FILE *file = fopen("prod.txt", "w");
     // fprintf(file, "%s", buffer);
@@ -84,7 +82,6 @@ void send_array()
             *ptr = segment[k];
             ptr++;
         }
-        buffer_index = (buffer_index + 1) % BLOCK_NUM;
         sem_post(mutex);
         sem_post(not_empty);
     }
@@ -100,6 +97,14 @@ int main(int argc, char *argv[])
         exit(0);
     }
     size = atoi(argv[1]) * 1000000;
+
+    //increasing stack limit to let the buffer be instantieted correctly
+    struct rlimit limit;
+    limit.rlim_cur = 105 * 1000000;
+    limit.rlim_max = 105 * 1000000;
+    setrlimit(RLIMIT_STACK, &limit);
+
+    char buffer[size];
 
     //randomizing seed for random string generator
     srand(time(NULL));
@@ -173,12 +178,12 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    random_string_generator();
+    random_string_generator(buffer);
 
     //get time of when the transfer has started
     gettimeofday(&start_time, NULL);
 
-    send_array();
+    send_array(buffer);
 
     while (flag_transfer_complete == 0)
     {

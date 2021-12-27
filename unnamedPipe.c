@@ -12,10 +12,8 @@
 #include <signal.h>
 #include <time.h>
 
-
 int fd_pipe[2];
-char buffer_producer[size] = "";
-char buffer_consumer[size] = "";
+
 struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
 int transfer_time;
@@ -23,7 +21,7 @@ int max_write_size;
 
 int size;
 
-void random_string_generator()
+void random_string_generator(char buffer_producer[])
 {
     // printf("generating random array...");
     for (int i = 0; i < size; i++)
@@ -45,7 +43,7 @@ void transfer_complete(int sig)
     }
 }
 
-void send_array()
+void send_array(char buffer_producer[])
 {
     // FILE * file = fopen("prod.txt","w");
     // fprintf(file,"%s",buffer_producer);
@@ -65,7 +63,7 @@ void send_array()
     }
 }
 
-void receive_array()
+void receive_array(char buffer_consumer[])
 {
     //variables for select function
     struct timeval timeout;
@@ -125,7 +123,13 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERROR, no size provided\n");
         exit(0);
     }
-    size = atoi(argv[1])* 1000000;
+    size = atoi(argv[1]) * 1000000;
+
+    //increasing stack limit to let the buffers be instantieted correctly
+    struct rlimit limit;
+    limit.rlim_cur = 105 * 1000000;
+    limit.rlim_max = 105 * 1000000;
+    setrlimit(RLIMIT_STACK, &limit);
 
     //randomizing seed for random string generator
     srand(time(NULL));
@@ -146,6 +150,7 @@ int main(int argc, char *argv[])
         pid_t pid;
         if ((pid = fork()) == 0) //consumer
         {
+            char buffer_consumer[size];
 
             close(fd_pipe[1]);
 
@@ -154,12 +159,14 @@ int main(int argc, char *argv[])
             read(fd_pipe[0], &pid_producer, sizeof(pid_t));
 
             // printf("read: %ld\n",read(fd_pipe[0], buffer_consumer, size));
-            receive_array();
+            receive_array(buffer_consumer);
             kill(pid_producer, SIGUSR1);
             close(fd_pipe[0]);
         }
         else
         { //producer
+
+            char buffer_producer[size];
 
             close(fd_pipe[0]);
 
@@ -170,14 +177,14 @@ int main(int argc, char *argv[])
             write(fd_pipe[1], &pid_producer, sizeof(pid_t));
 
             //generating random string
-            random_string_generator();
+            random_string_generator(buffer_producer);
 
             //get time of when the transfer has started
             gettimeofday(&start_time, NULL);
 
             //writing buffer on pipe
 
-            send_array();
+            send_array(buffer_producer);
             // printf("write: %ld\n",write(fd_pipe[1], buffer_producer, size));
 
             while (flag_transfer_complete == 0)
