@@ -1,27 +1,28 @@
 gcc namedPipeProducer.c -o namedPipeProducer
 gcc namedPipeConsumer.c -o namedPipeConsumer
-# ./namedPipeProducer & ./namedPipeConsumer
 
 gcc unnamedPipe.c -o unnamedPipe
-# ./unnamedPipe
 
 gcc socketProducer.c -o socketProducer -lpthread
 gcc socketConsumer.c -o socketConsumer -lpthread
-# ./socketProducer 5001 & ./socketConsumer 127.0.0.1 5001
 
 gcc sharedProducer.c -o sharedProducer -lrt -pthread
 gcc sharedConsumer.c -o sharedConsumer -lrt -pthread
-# ./sharedProducer  & ./sharedConsumer 
 
+#buffer size
 SIZE=1000
+#user input choice
 CHOICE=-1
+#memory mode
 MODE=0
 
+#alternative echo colours
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 BLUE='\033[1;34m'
 NC='\033[0m'
 
+#get buffer dimension
 get_dimension(){
     clear
     echo "SPEED EFFICIENCY METER"
@@ -29,6 +30,7 @@ get_dimension(){
     echo 
     read -p "Enter the amount of MB you want to transfer (min 1MB - max 100MB): " SIZE
 
+    #while SIZE < 1 or SIZE > 100 or SIZE is null or SIZE is not a number
     while [ "$SIZE" -gt 100 ] || [ "$SIZE" -lt 1 ] || [ -z "$SIZE" ] || [[ ! "$SIZE" =~ ^[0-9]+$ ]] ;do 
     clear
     echo "SPEED EFFICIENCY METER"
@@ -38,11 +40,13 @@ get_dimension(){
     done
 }
 
+#get circular buffer dimension
 get_circular_dimension(){
     echo
     read -p "        Enter the circular buffer size in KB  (min 1KB - max 10KB): " CIRCULAR_SIZE
     echo
 
+    #while CIRCULAR_SIZE < 1 or CIRCULAR_SIZE > 10 or CIRCULAR_SIZE is null or CIRCULAR_SIZE is not a number
     while [ "$CIRCULAR_SIZE" -gt 10 ] || [ "$CIRCULAR_SIZE" -lt 1 ] || [ -z "$CIRCULAR_SIZE" ] || [[ ! "$CIRCULAR_SIZE" =~ ^[0-9]+$ ]] ;do 
     echo
     read -p "        Enter the circular buffer size in KB  (min 1KB - max 10KB): " CIRCULAR_SIZE
@@ -50,6 +54,7 @@ get_circular_dimension(){
     done
 }
 
+#print program instruction
 display_instructions(){
 
 
@@ -86,55 +91,72 @@ display_instructions(){
     echo
 }
 
+
 get_dimension
 display_instructions
 
-
+#infinite loop
 while : ;do
 case $CHOICE in
 
     0)
+    #quit program
     exit 0
     ;;
 
     1)
     ./namedPipeProducer ${SIZE} ${MODE} & ./namedPipeConsumer ${SIZE} ${MODE}
+    #introduce very small delay to guarantee correct user interfacing
+    sleep 0.00001
+    #fixed value that asks the user for another input
     CHOICE=-100
     ;;
 
     2)
     ./unnamedPipe ${SIZE} ${MODE}
+    #introduce very small delay to guarantee correct user interfacing
+    sleep 0.00001
+    #fixed value that asks the user for another input
     CHOICE=-100
     ;;
 
     3)
     ./socketProducer ${SIZE} ${MODE} 5555 & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 5555
+    #introduce very small delay to guarantee correct user interfacing
+    sleep 0.00001
+    #fixed value that asks the user for another input
     CHOICE=-100
     ;;
 
     4)
     get_circular_dimension
     ./sharedProducer ${SIZE} ${MODE} ${CIRCULAR_SIZE} & ./sharedConsumer ${SIZE} ${MODE} ${CIRCULAR_SIZE}
+    #introduce very small delay to guarantee correct user interfacing
+    sleep 0.00001
+    #fixed value that asks the user for another input
     CHOICE=-100
     ;;
 
     5)
     get_dimension
+    #random value used to print again the instructions
     CHOICE=-99
     ;;
 
     6)
+    #switch memory mode
     if [[ "$MODE" -eq 0 ]]
     then
         MODE=1
     else
         MODE=0
     fi
-    
+    #random value used to print again the instructions
     CHOICE=-99
     ;;
 
     -100)
+    #ask for another input
     echo
     read -p "Enter your choice: " CHOICE
     echo
