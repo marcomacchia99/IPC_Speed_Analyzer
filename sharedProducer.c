@@ -23,19 +23,34 @@ int shm_fd;
 char *ptr;
 int buffer_index = 0;
 
+struct timeval start_time, stop_time;
+int flag_transfer_complete = 0;
+int transfer_time;
+
 sem_t *mutex;
 sem_t *not_empty;
 sem_t *not_full;
 
+void transfer_complete(int sig)
+{
+    if (sig == SIGUSR1)
+    {
+        gettimeofday(&stop_time, NULL);
+        //calculating time in milliseconds
+        transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec) / 1000;
+        flag_transfer_complete = 1;
+    }
+}
+
 void random_string_generator()
 {
-    printf("generating random array...");
+    // printf("generating random array...");
     for (int i = 0; i < SIZE; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
     }
-    printf("\n\nrandom array generated!\n\n");
+    // printf("\n\nrandom array generated!\n\n");
 }
 
 void send_array()
@@ -55,35 +70,41 @@ void send_array()
         {
             segment[j] = buffer[i * block_size + j];
         }
-        // while(sem_trywait(&mutex)==0){
-        //     usleep(1000);
-        // }
-        // sem_wait(&mutex);
-        // printf("%d - write: %ld\n", i, write(fd_socket_new, segment, max_write_size));
-        if(i%BLOCK_NUM==0 && i>0){
-            ptr-= block_size*BLOCK_NUM;
+
+        if (i % BLOCK_NUM == 0 && i > 0)
+        {
+            ptr -= block_size * BLOCK_NUM;
         }
+
         sem_wait(not_full);
         sem_wait(mutex);
         for (int k = 0; k < strlen(segment); k++)
         {
             *ptr = segment[k];
-            printf("%c",segment[k]);
             ptr++;
         }
-        printf("\n");
-        // ptr[buffer_index] = segment;
-        // printf("%d - %s\n", buffer_index, ptr[buffer_index]);
         buffer_index = (buffer_index + 1) % BLOCK_NUM;
         sem_post(mutex);
         sem_post(not_empty);
-
-        // sem_post(&mutex);
     }
 }
 
 int main(int argc, char *argv[])
 {
+
+    //randomizing seed for random string generator
+    srand(time(NULL));
+
+    signal(SIGUSR1, transfer_complete);
+
+    char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
+    mkfifo(fifo_shared_producer_pid, 0666);
+    int fd_pid = open(fifo_shared_producer_pid, O_WRONLY);
+    pid_t pid = getpid();
+    write(fd_pid, &pid, sizeof(pid));
+    close(fd_pid);
+    unlink(fifo_shared_producer_pid);
+
     if ((shm_fd = shm_open(shm_name, O_CREAT | O_RDWR | O_TRUNC, 0666)) == -1)
     {
         perror("producer - shm_open failure");
@@ -145,17 +166,18 @@ int main(int argc, char *argv[])
 
     random_string_generator();
 
+    //get time of when the transfer has started
+    gettimeofday(&start_time, NULL);
+
     send_array();
 
-    // // write the next entry and atomically update the write sequence number
-    // /* Buffer *msg = &ptr->_buffer[ptr->in % SIZE];
-    //     msg->_id = i++; */
-    // ptr->file_path[ptr->in] = 1 + 1;
-    // //ptr->in = (ptr->in + 1) % SIZE;
-    // //__sync_fetch_and_add(&ptr->in, 1);
-    // printf("in : %d", ptr->file_path[ptr->in]);
-    // // give consumer some time to catch up
+    while (flag_transfer_complete == 0)
+    {
+        ;
+    }
 
+    printf("shared memory time: %d ms\n", transfer_time);
+    fflush(stdout);
 
     sem_close(mutex);
     sem_unlink("mutex");

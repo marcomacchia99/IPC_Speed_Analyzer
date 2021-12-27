@@ -159,7 +159,5 @@ int main(int argc, char *argv[])
     //close and delete fifo
     close(fd_socket);
 
-    printf("cons %ld\n", strlen(buffer));
-
     return 0;
 }

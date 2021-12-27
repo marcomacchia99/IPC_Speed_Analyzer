@@ -28,6 +28,12 @@ sem_t *mutex;
 sem_t *not_empty;
 sem_t *not_full;
 
+pid_t producer_pid;
+
+//variables for select function
+struct timeval timeout;
+fd_set readfds;
+
 void receive_array()
 {
 
@@ -38,8 +44,9 @@ void receive_array()
         //read random string from producer
         char segment[block_size];
 
-        if(i%BLOCK_NUM==0 && i>0){
-            ptr-= block_size*BLOCK_NUM;
+        if (i % BLOCK_NUM == 0 && i > 0)
+        {
+            ptr -= block_size * BLOCK_NUM;
         }
 
         sem_wait(not_empty);
@@ -58,15 +65,16 @@ void receive_array()
         }
         else
         {
-            for(int j=0;j<block_size;j++){
+            for (int j = 0; j < block_size; j++)
+            {
                 buffer[i * block_size + j] = *ptr;
                 ptr++;
             }
         }
 
+
         sem_post(mutex);
         sem_post(not_full);
-
     }
     // FILE *file = fopen("cons.txt", "w");
     // fprintf(file, "%s", buffer);
@@ -76,6 +84,22 @@ void receive_array()
 
 int main(int argc, char *argv[])
 {
+    char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
+    mkfifo(fifo_shared_producer_pid, 0666);
+    int fd_pid = open(fifo_shared_producer_pid, O_RDONLY);
+    int sel;
+    do
+    {
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 1000;
+        FD_ZERO(&readfds);
+        //add the selected file descriptor to the selected fd_set
+        FD_SET(fd_pid, &readfds);
+        sel = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+    } while (sel <= 0);
+    read(fd_pid, &producer_pid, sizeof(producer_pid));
+    close(fd_pid);
+    unlink(fifo_shared_producer_pid);
     sleep(1);
 
     if ((shm_fd = shm_open(shm_name, O_RDONLY, 0666)) == -1)
@@ -109,12 +133,15 @@ int main(int argc, char *argv[])
 
     receive_array();
 
+    //transfer complete. Sends signal to notify the producer
+    kill(producer_pid, SIGUSR1);
+
     if (shm_unlink(shm_name) == 1)
     {
         printf("Error removing %s\n", shm_name);
         exit(1);
     }
-
+    
 
     sem_close(mutex);
     sem_unlink("mutex");

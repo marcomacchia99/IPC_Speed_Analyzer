@@ -24,11 +24,13 @@ int max_write_size;
 
 void random_string_generator()
 {
+    // printf("generating random array...");
     for (int i = 0; i < SIZE; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer_producer[i] = char_index;
     }
+    // printf("\n\nrandom array generated!\n\n");
 }
 
 void transfer_complete(int sig)
@@ -116,7 +118,7 @@ void receive_array()
 
 int main(int argc, char *argv[])
 {
-    //randomizing seed for random error generator
+    //randomizing seed for random string generator
     srand(time(NULL));
 
     //generating pipe
@@ -152,16 +154,14 @@ int main(int argc, char *argv[])
 
             close(fd_pipe[0]);
 
-            signal(SIGUSR1,transfer_complete);
+            signal(SIGUSR1, transfer_complete);
 
             //sending pid to consumer
             pid_t pid_producer = getpid();
-            write(fd_pipe[1],&pid_producer,sizeof(pid_t));
+            write(fd_pipe[1], &pid_producer, sizeof(pid_t));
 
             //generating random string
-            printf("generating random array...");
             random_string_generator();
-            printf("\n\nrandom array generated!\n\n");
 
             //get time of when the transfer has started
             gettimeofday(&start_time, NULL);
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
                 ;
             }
 
-            printf("time: %d ms\n", transfer_time);
+            printf("unnamed pipe time: %d ms\n", transfer_time);
             fflush(stdout);
 
             //close and delete fifo

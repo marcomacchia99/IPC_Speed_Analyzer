@@ -32,13 +32,13 @@ sem_t mutex;
 
 void random_string_generator()
 {
-    printf("generating random array...");
+    // printf("generating random array...");
     for (int i = 0; i < SIZE; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
     }
-    printf("\n\nrandom array generated!\n\n");
+    // printf("\n\nrandom array generated!\n\n");
 }
 
 void transfer_complete(int sig)
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
     }
     portno = atoi(argv[1]);
 
-    //randomizing seed for random error generator
+    //randomizing seed for random string generator
     srand(time(NULL));
 
     //the process must handle SIGUSR1 signal
@@ -159,13 +159,12 @@ int main(int argc, char *argv[])
         ;
     }
 
-    printf("time: %d ms\n", transfer_time);
+    printf("socket time: %d ms\n", transfer_time);
     fflush(stdout);
 
     //close socket
     close(fd_socket);
     close(fd_socket_new);
 
-    printf("prod %ld\n", strlen(buffer));
     return 0;
 }
