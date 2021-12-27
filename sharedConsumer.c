@@ -13,11 +13,10 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 
-#define SIZE 100 * 1000000
-#define CIRCULAR_SIZE 10 * 1000
+#define CIRCULAR_size 10 * 1000
 #define BLOCK_NUM 100
 
-char buffer[SIZE] = "";
+char buffer[size] = "";
 
 const char *shm_name = "/AOS";
 int shm_fd;
@@ -34,11 +33,13 @@ pid_t producer_pid;
 struct timeval timeout;
 fd_set readfds;
 
+int size;
+
 void receive_array()
 {
 
-    int block_size = (CIRCULAR_SIZE / BLOCK_NUM) + (CIRCULAR_SIZE % BLOCK_NUM != 0 ? 1 : 0);
-    int cycles = SIZE / block_size + (SIZE % block_size != 0 ? 1 : 0);
+    int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
+    int cycles = size / block_size + (size % block_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
         //read random string from producer
@@ -56,7 +57,7 @@ void receive_array()
         {
 
             int j = 0;
-            while ((i * block_size + j) < SIZE)
+            while ((i * block_size + j) < size)
             {
                 buffer[i * block_size + j] = *ptr;
                 ptr++;
@@ -72,7 +73,6 @@ void receive_array()
             }
         }
 
-
         sem_post(mutex);
         sem_post(not_full);
     }
@@ -84,6 +84,15 @@ void receive_array()
 
 int main(int argc, char *argv[])
 {
+
+    //getting size from console
+    if (argc < 2)
+    {
+        fprintf(stderr, "Consumer - ERROR, no size provided\n");
+        exit(0);
+    }
+    size = atoi(argv[1]) * 1000000;
+
     char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
     mkfifo(fifo_shared_producer_pid, 0666);
     int fd_pid = open(fifo_shared_producer_pid, O_RDONLY);
@@ -108,7 +117,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if ((ptr = mmap(NULL, CIRCULAR_SIZE, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
+    if ((ptr = mmap(NULL, CIRCULAR_size, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
         perror("consumer - map failed");
         exit(1);
@@ -141,7 +150,6 @@ int main(int argc, char *argv[])
         printf("Error removing %s\n", shm_name);
         exit(1);
     }
-    
 
     sem_close(mutex);
     sem_unlink("mutex");
@@ -150,7 +158,7 @@ int main(int argc, char *argv[])
     sem_close(not_full);
     sem_unlink("not_full");
 
-    munmap(ptr, CIRCULAR_SIZE);
+    munmap(ptr, CIRCULAR_size);
     close(shm_fd);
 
     return 0;

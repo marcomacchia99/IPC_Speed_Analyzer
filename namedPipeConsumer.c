@@ -10,13 +10,13 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#define SIZE 100 * 1000000
-
 int fd_pipe;
-char buffer[SIZE] = "";
+char buffer[size] = "";
 int max_write_size;
 
 pid_t producer_pid;
+
+int size;
 
 
 void receive_array()
@@ -27,7 +27,7 @@ void receive_array()
     timeout.tv_sec = 0;
     timeout.tv_usec = 1000;
 
-    int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
+    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
         FD_ZERO(&readfds);
@@ -41,13 +41,13 @@ void receive_array()
         //read random string from producer
         char segment[max_write_size];
         read(fd_pipe, segment, max_write_size);
-        // printf("read: %ld\n", read(fd_pipe, segment, SIZE));
+        // printf("read: %ld\n", read(fd_pipe, segment, size));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
         {
             int j=0;
-            while((i * max_write_size + j) < SIZE){
+            while((i * max_write_size + j) < size){
                 buffer[i*max_write_size+j]=segment[j];
                 j++;
             }
@@ -58,7 +58,7 @@ void receive_array()
             strcat(buffer, segment);
         }
 
-        // for (int j = 0; j < max_write_size && ((i * max_write_size + j) < SIZE); j++)
+        // for (int j = 0; j < max_write_size && ((i * max_write_size + j) < size); j++)
         // {
         //     buffer[i * max_write_size + j] = segment[j];
         // }
@@ -71,6 +71,13 @@ void receive_array()
 
 int main(int argc, char *argv[])
 {
+    //getting size from console
+    if (argc < 2)
+    {
+        fprintf(stderr, "Consumer - ERROR, no size provided\n");
+        exit(0);
+    }
+    size = atoi(argv[1])* 1000000;
 
     //defining fifo path
     char *fifo_named_pipe = "/tmp/named_pipe";

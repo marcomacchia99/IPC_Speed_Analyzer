@@ -12,19 +12,19 @@
 #include <signal.h>
 #include <time.h>
 
-#define SIZE 100 * 1000000
-
 int fd_pipe;
-char buffer[SIZE] = "";
+char buffer[size] = "";
 struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
 int transfer_time;
 int max_write_size;
 
+int size;
+
 void random_string_generator()
 {
     // printf("generating random array...");
-    for (int i = 0; i < SIZE; i++)
+    for (int i = 0; i < size; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
@@ -38,7 +38,7 @@ void transfer_complete(int sig)
     {
         gettimeofday(&stop_time, NULL);
         //calculating time in milliseconds
-        transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec)/1000;
+        transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec) / 1000;
         flag_transfer_complete = 1;
     }
 }
@@ -50,11 +50,11 @@ void send_array()
     // fflush(file);
     // fclose(file);
 
-    int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
+    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
         char segment[max_write_size];
-        for (int j = 0; j < max_write_size && ((i * max_write_size + j) < SIZE); j++)
+        for (int j = 0; j < max_write_size && ((i * max_write_size + j) < size); j++)
         {
             segment[j] = buffer[i * max_write_size + j];
         }
@@ -65,6 +65,14 @@ void send_array()
 
 int main(int argc, char *argv[])
 {
+    //getting size from console
+    if (argc < 2)
+    {
+        fprintf(stderr, "Producer - ERROR, no size provided\n");
+        exit(0);
+    }
+    size = atoi(argv[1])* 1000000;
+
     //randomizing seed for random string generator
     srand(time(NULL));
 
@@ -97,7 +105,6 @@ int main(int argc, char *argv[])
 
     //generating random string
     random_string_generator();
-    
 
     //get time of when the transfer has started
     gettimeofday(&start_time, NULL);

@@ -15,14 +15,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define SIZE 100 * 1000000
 
 int fd_socket;
 int fd_socket_new;
 int portno;
 struct sockaddr_in server_addr, client_addr;
 
-char buffer[SIZE] = "";
+char buffer[size] = "";
 struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
 int transfer_time;
@@ -30,10 +29,12 @@ int max_write_size;
 
 sem_t mutex;
 
+int size;
+
 void random_string_generator()
 {
     // printf("generating random array...");
-    for (int i = 0; i < SIZE; i++)
+    for (int i = 0; i < size; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
@@ -58,12 +59,12 @@ void send_array()
     // fprintf(file, "%s", buffer);
     // fflush(file);
     // fclose(file);
-    int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
+    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     //sending data divided in blocks of max_write_size size
     for (int i = 0; i < cycles; i++)
     {
         char segment[max_write_size];
-        for (int j = 0; j < max_write_size && ((i * max_write_size + j) < SIZE); j++)
+        for (int j = 0; j < max_write_size && ((i * max_write_size + j) < size); j++)
         {
             segment[j] = buffer[i * max_write_size + j];
         }
@@ -79,12 +80,21 @@ void send_array()
 
 int main(int argc, char *argv[])
 {
+
+    //getting size from console
     if (argc < 2)
+    {
+        fprintf(stderr, "Producer - ERROR, no size provided\n");
+        exit(0);
+    }
+    size = atoi(argv[1]) * 1000000;
+
+    if (argc < 3)
     {
         fprintf(stderr, "Producer - ERROR, no port provided\n");
         exit(0);
     }
-    portno = atoi(argv[1]);
+    portno = atoi(argv[2]);
 
     //randomizing seed for random string generator
     srand(time(NULL));
@@ -146,7 +156,6 @@ int main(int argc, char *argv[])
     //generating random strings
 
     random_string_generator();
-    
 
     //get time of when the transfer has started
     gettimeofday(&start_time, NULL);

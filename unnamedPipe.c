@@ -12,20 +12,21 @@
 #include <signal.h>
 #include <time.h>
 
-#define SIZE 100 * 1000000
 
 int fd_pipe[2];
-char buffer_producer[SIZE] = "";
-char buffer_consumer[SIZE] = "";
+char buffer_producer[size] = "";
+char buffer_consumer[size] = "";
 struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
 int transfer_time;
 int max_write_size;
 
+int size;
+
 void random_string_generator()
 {
     // printf("generating random array...");
-    for (int i = 0; i < SIZE; i++)
+    for (int i = 0; i < size; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer_producer[i] = char_index;
@@ -51,11 +52,11 @@ void send_array()
     // fflush(file);
     // fclose(file);
 
-    int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
+    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
         char segment[max_write_size];
-        for (int j = 0; j < max_write_size && ((i * max_write_size + j) < SIZE); j++)
+        for (int j = 0; j < max_write_size && ((i * max_write_size + j) < size); j++)
         {
             segment[j] = buffer_producer[i * max_write_size + j];
         }
@@ -72,7 +73,7 @@ void receive_array()
     timeout.tv_sec = 0;
     timeout.tv_usec = 1000;
 
-    int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
+    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
         FD_ZERO(&readfds);
@@ -87,13 +88,13 @@ void receive_array()
         //read random string from producer
         char segment[max_write_size];
         read(fd_pipe[0], segment, max_write_size);
-        // printf("read: %ld\n", read(fd_pipe[0], segment, SIZE));
+        // printf("read: %ld\n", read(fd_pipe[0], segment, size));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
         {
             int j = 0;
-            while ((i * max_write_size + j) < SIZE)
+            while ((i * max_write_size + j) < size)
             {
                 buffer_consumer[i * max_write_size + j] = segment[j];
                 j++;
@@ -105,7 +106,7 @@ void receive_array()
             strcat(buffer_consumer, segment);
         }
 
-        // for (int j = 0; j < max_write_size && ((i * max_write_size + j) < SIZE); j++)
+        // for (int j = 0; j < max_write_size && ((i * max_write_size + j) < size); j++)
         // {
         //     buffer[i * max_write_size + j] = segment[j];
         // }
@@ -118,6 +119,14 @@ void receive_array()
 
 int main(int argc, char *argv[])
 {
+    //getting size from console
+    if (argc < 2)
+    {
+        fprintf(stderr, "ERROR, no size provided\n");
+        exit(0);
+    }
+    size = atoi(argv[1])* 1000000;
+
     //randomizing seed for random string generator
     srand(time(NULL));
 
@@ -144,7 +153,7 @@ int main(int argc, char *argv[])
             pid_t pid_producer;
             read(fd_pipe[0], &pid_producer, sizeof(pid_t));
 
-            // printf("read: %ld\n",read(fd_pipe[0], buffer_consumer, SIZE));
+            // printf("read: %ld\n",read(fd_pipe[0], buffer_consumer, size));
             receive_array();
             kill(pid_producer, SIGUSR1);
             close(fd_pipe[0]);
@@ -169,7 +178,7 @@ int main(int argc, char *argv[])
             //writing buffer on pipe
 
             send_array();
-            // printf("write: %ld\n",write(fd_pipe[1], buffer_producer, SIZE));
+            // printf("write: %ld\n",write(fd_pipe[1], buffer_producer, size));
 
             while (flag_transfer_complete == 0)
             {

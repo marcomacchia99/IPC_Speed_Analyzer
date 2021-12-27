@@ -14,14 +14,13 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define SIZE 100 * 1000000
 
 int fd_socket;
 int portno;
 struct sockaddr_in server_addr;
 struct hostent *server;
 
-char buffer[SIZE] = "";
+char buffer[size] = "";
 int max_write_size;
 
 pid_t producer_pid;
@@ -32,10 +31,12 @@ sem_t mutex;
 struct timeval timeout;
 fd_set readfds;
 
+int size;
+
 void receive_array()
 {
 
-    int cycles = SIZE / max_write_size + (SIZE % max_write_size != 0 ? 1 : 0);
+    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
 
@@ -68,7 +69,7 @@ void receive_array()
         {
 
             int j = 0;
-            while ((i * max_write_size + j) < SIZE)
+            while ((i * max_write_size + j) < size)
             {
                 buffer[i * max_write_size + j] = segment[j];
                 j++;
@@ -87,13 +88,20 @@ void receive_array()
 
 int main(int argc, char *argv[])
 {
-
+    //getting size from console
     if (argc < 3)
+    {
+        fprintf(stderr, "Consumer - ERROR, no size provided\n");
+        exit(0);
+    }
+    size = atoi(argv[1]) * 1000000;
+
+    if (argc < 4)
     {
         fprintf(stderr, "usage %s hostname port\n", argv[0]);
         exit(0);
     }
-    portno = atoi(argv[2]);
+    portno = atoi(argv[3]);
     fd_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_socket < 0)
     {
@@ -101,7 +109,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    server = gethostbyname(argv[1]);
+    server = gethostbyname(argv[2]);
     if (server == NULL)
     {
         fprintf(stderr, "Consumer - ERROR, no such host\n");
