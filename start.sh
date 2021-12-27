@@ -9,6 +9,6 @@
 # gcc socketConsumer.c -o socketConsumer -lpthread
 # ./socketProducer 5001 & ./socketConsumer 127.0.0.1 5001
 
-gcc sharedProducer.c -o sharedProducer -lrt -lpthread
-gcc sharedConsumer.c -o sharedConsumer -lrt -lpthread
+gcc sharedProducer.c -o sharedProducer -lrt -pthread
+gcc sharedConsumer.c -o sharedConsumer -lrt -pthread
 ./sharedProducer  & ./sharedConsumer 

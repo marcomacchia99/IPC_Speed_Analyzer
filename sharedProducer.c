@@ -13,30 +13,19 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 
-#define SIZE 1 * 1000000
+#define SIZE 100 * 1000000
 #define CIRCULAR_SIZE 10 * 1000
 #define BLOCK_NUM 100
 
 char buffer[SIZE] = "";
-
-int shm_size;
 const char *shm_name = "/AOS";
 int shm_fd;
-caddr_t *ptr;
+char *ptr;
 int buffer_index = 0;
 
 sem_t *mutex;
 sem_t *not_empty;
 sem_t *not_full;
-
-/* int random_string_generator()
-{
-    for (int i = 0; i < SIZE; i++)
-    {
-        int char_index = 32 + rand() % 94;
-        return char_index;
-    }
-} */
 
 void random_string_generator()
 {
@@ -71,15 +60,23 @@ void send_array()
         // }
         // sem_wait(&mutex);
         // printf("%d - write: %ld\n", i, write(fd_socket_new, segment, max_write_size));
+        if(i%BLOCK_NUM==0 && i>0){
+            ptr-= block_size*BLOCK_NUM;
+        }
         sem_wait(not_full);
         sem_wait(mutex);
-        ptr[buffer_index] = segment;
-        printf("%d - %s\n", buffer_index, ptr[buffer_index]);
+        for (int k = 0; k < strlen(segment); k++)
+        {
+            *ptr = segment[k];
+            printf("%c",segment[k]);
+            ptr++;
+        }
+        printf("\n");
+        // ptr[buffer_index] = segment;
+        // printf("%d - %s\n", buffer_index, ptr[buffer_index]);
+        buffer_index = (buffer_index + 1) % BLOCK_NUM;
         sem_post(mutex);
         sem_post(not_empty);
-
-
-        buffer_index = (buffer_index + 1) % BLOCK_NUM;
 
         // sem_post(&mutex);
     }
@@ -128,26 +125,23 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if (sem_init(mutex,1,1)==-1)
+    if (sem_init(mutex, 1, 1) == -1)
     {
         perror("producer - sem_init failed");
         exit(1);
     }
 
-    if (sem_init(not_full,1,BLOCK_NUM)==-1)
+    if (sem_init(not_full, 1, BLOCK_NUM) == -1)
     {
         perror("producer - sem_init failed");
         exit(1);
     }
-    
 
-    if (sem_init(not_empty,1,0)==-1)
+    if (sem_init(not_empty, 1, 0) == -1)
     {
         perror("producer - sem_init failed");
         exit(1);
     }
-    
-    
 
     random_string_generator();
 
@@ -162,8 +156,6 @@ int main(int argc, char *argv[])
     // printf("in : %d", ptr->file_path[ptr->in]);
     // // give consumer some time to catch up
 
-    munmap(ptr, CIRCULAR_SIZE);
-    close(shm_fd);
 
     sem_close(mutex);
     sem_unlink("mutex");
@@ -171,6 +163,9 @@ int main(int argc, char *argv[])
     sem_unlink("not_empty");
     sem_close(not_full);
     sem_unlink("not_full");
+
+    munmap(ptr, CIRCULAR_SIZE);
+    close(shm_fd);
 
     return 0;
 }

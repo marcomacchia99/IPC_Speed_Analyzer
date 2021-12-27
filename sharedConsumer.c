@@ -13,7 +13,7 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 
-#define SIZE 1 * 1000000
+#define SIZE 100 * 1000000
 #define CIRCULAR_SIZE 10 * 1000
 #define BLOCK_NUM 100
 
@@ -21,7 +21,7 @@ char buffer[SIZE] = "";
 
 const char *shm_name = "/AOS";
 int shm_fd;
-caddr_t * ptr;
+char *ptr;
 int buffer_index = 0;
 
 sem_t *mutex;
@@ -33,42 +33,41 @@ void receive_array()
 
     int block_size = (CIRCULAR_SIZE / BLOCK_NUM) + (CIRCULAR_SIZE % BLOCK_NUM != 0 ? 1 : 0);
     int cycles = SIZE / block_size + (SIZE % block_size != 0 ? 1 : 0);
-    printf("cycles %d\n", cycles);
     for (int i = 0; i < cycles; i++)
     {
-        printf("cycle %d\n", i);
         //read random string from producer
         char segment[block_size];
 
-        // sem_wait(&mutex);
-        // printf("%d - read: %ld\n", i, read(fd_socket, segment, max_write_size));
+        if(i%BLOCK_NUM==0 && i>0){
+            ptr-= block_size*BLOCK_NUM;
+        }
+
         sem_wait(not_empty);
         sem_wait(mutex);
-        printf("%s\n", ptr[buffer_index]);
-        strcpy(segment, ptr[buffer_index]);
-        sem_post(mutex);
-        sem_post(not_full);
 
-        buffer_index = (buffer_index + 1) % BLOCK_NUM;
-        // sem_post(&mutex);
-
-        //add every segment to entire buffer
         if (i == cycles - 1)
         {
 
             int j = 0;
             while ((i * block_size + j) < SIZE)
             {
-                buffer[i * block_size + j] = segment[j];
+                buffer[i * block_size + j] = *ptr;
+                ptr++;
                 j++;
             }
         }
         else
         {
-            strcat(buffer, segment);
+            for(int j=0;j<block_size;j++){
+                buffer[i * block_size + j] = *ptr;
+                ptr++;
+            }
         }
+
+        sem_post(mutex);
+        sem_post(not_full);
+
     }
-    printf("x\n");
     // FILE *file = fopen("cons.txt", "w");
     // fprintf(file, "%s", buffer);
     // fflush(file);
@@ -79,13 +78,13 @@ int main(int argc, char *argv[])
 {
     sleep(1);
 
-    if ((shm_fd = shm_open(shm_name, O_RDWR, 0)) == -1)
+    if ((shm_fd = shm_open(shm_name, O_RDONLY, 0666)) == -1)
     {
         perror("consumer - shm_open failure");
         exit(1);
     }
 
-    if ((ptr = mmap(0, CIRCULAR_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == (caddr_t) -1)
+    if ((ptr = mmap(NULL, CIRCULAR_SIZE, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
         perror("consumer - map failed");
         exit(1);
@@ -108,8 +107,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    printf("a\n");
-    printf("%s\n",ptr[0]);
     receive_array();
 
     if (shm_unlink(shm_name) == 1)
@@ -118,8 +115,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    munmap(ptr, CIRCULAR_SIZE);
-    close(shm_fd);
 
     sem_close(mutex);
     sem_unlink("mutex");
@@ -127,6 +122,9 @@ int main(int argc, char *argv[])
     sem_unlink("not_empty");
     sem_close(not_full);
     sem_unlink("not_full");
+
+    munmap(ptr, CIRCULAR_SIZE);
+    close(shm_fd);
 
     return 0;
 }
