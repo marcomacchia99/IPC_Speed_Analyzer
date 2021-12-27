@@ -12,26 +12,34 @@
 #include <signal.h>
 #include <time.h>
 
+//pipe file descriptor
 int fd_pipe;
-
-struct timeval start_time, stop_time;
-int flag_transfer_complete = 0;
-int transfer_time;
+//maximum size of writed data
 int max_write_size;
 
+//variables for time measurement
+struct timeval start_time, stop_time;
+//flag if the consumer received all the data
+int flag_transfer_complete = 0;
+//amount of transfer milliseconds 
+int transfer_time;
+
+//buffer size
 int size;
+
+//memory mode
 int mode;
+
+//variable use to get and set resource limits
 struct rlimit limit;
 
 void random_string_generator(char buffer[])
 {
-    // printf("generating random array...");
     for (int i = 0; i < size; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
     }
-    // printf("\n\nrandom array generated!\n\n");
 }
 
 void transfer_complete(int sig)
@@ -50,6 +58,8 @@ void send_array(char buffer[])
 
     //number of cycles needed to send all the data
     int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
+    
+    //sending data to consumer divided into blocks of dimension max_write_size
     for (int i = 0; i < cycles; i++)
     {
         char segment[max_write_size];
@@ -57,7 +67,6 @@ void send_array(char buffer[])
         {
             segment[j] = buffer[i * max_write_size + j];
         }
-        // printf("write: %ld\n",write(fd_pipe, segment, max_write_size));
         write(fd_pipe, segment, max_write_size);
     }
 }
@@ -105,7 +114,6 @@ int main(int argc, char *argv[])
     fd_pipe = open(fifo_named_pipe, O_WRONLY);
 
     //defining max size for operations and files
-
     getrlimit(RLIMIT_NOFILE, &limit);
     max_write_size = limit.rlim_max;
     fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size);
@@ -147,6 +155,7 @@ int main(int argc, char *argv[])
         send_array(buffer);
     }
 
+    //wait until transfer is complete
     while (flag_transfer_complete == 0)
     {
         ;

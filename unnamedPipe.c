@@ -12,25 +12,31 @@
 #include <signal.h>
 #include <time.h>
 
+//pipes file descriptor
 int fd_pipe[2];
-
-struct timeval start_time, stop_time;
-int flag_transfer_complete = 0;
-int transfer_time;
+//maximum size of writed data
 int max_write_size;
 
+//variables for time measurement
+struct timeval start_time, stop_time;
+//flag if the consumer received all the data
+int flag_transfer_complete = 0;
+//amount of transfer milliseconds 
+int transfer_time;
+
+//buffer size
 int size;
+
+//memory mode
 int mode;
 
 void random_string_generator(char buffer_producer[])
 {
-    // printf("generating random array...");
     for (int i = 0; i < size; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer_producer[i] = char_index;
     }
-    // printf("\n\nrandom array generated!\n\n");
 }
 
 void transfer_complete(int sig)
@@ -48,6 +54,8 @@ void send_array(char buffer_producer[])
 {
     //number of cycles needed to send all the data
     int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
+
+    //sending data to consumer divided into blocks of dimension max_write_size
     for (int i = 0; i < cycles; i++)
     {
         char segment[max_write_size];
@@ -55,7 +63,7 @@ void send_array(char buffer_producer[])
         {
             segment[j] = buffer_producer[i * max_write_size + j];
         }
-        // printf("write: %ld\n", write(fd_pipe[1], segment, max_write_size));
+
         write(fd_pipe[1], segment, max_write_size);
     }
 }
@@ -66,7 +74,7 @@ void receive_array(char buffer_consumer[])
     struct timeval timeout;
     fd_set readfds;
 
-    //number of cycles needed to send all the do 
+    //number of cycles needed to send all the do
     int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
@@ -80,12 +88,12 @@ void receive_array(char buffer_consumer[])
             FD_ZERO(&readfds);
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_pipe[0], &readfds);
+
         } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
 
-        //read random string from producer
+        //read string from producer
         char segment[max_write_size];
         read(fd_pipe[0], segment, max_write_size);
-        // printf("read: %ld\n", read(fd_pipe[0], segment, size));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
@@ -143,15 +151,15 @@ int main(int argc, char *argv[])
         if ((pid = fork()) == 0) //consumer
         {
 
-            close(fd_pipe[1]);
-
-            //receiving producer pid
             pid_t pid_producer;
+
+            close(fd_pipe[1]);
 
             //variables for select function
             struct timeval timeout;
             fd_set readfds;
 
+            //receiving producer pid
             int sel_val;
             do //wait until pid is ready
             {
@@ -160,10 +168,12 @@ int main(int argc, char *argv[])
 
                 FD_ZERO(&readfds);
                 //add the selected file descriptor to the selected fd_set
-
                 FD_SET(fd_pipe[0], &readfds);
+
                 sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+
             } while (sel_val <= 0);
+
             read(fd_pipe[0], &pid_producer, sizeof(pid_t));
 
             //switch between dynamic allocation or standard allocation
@@ -191,6 +201,7 @@ int main(int argc, char *argv[])
                 receive_array(buffer_consumer);
             }
 
+            //transfer complete. Sends signal to notify the producer
             kill(pid_producer, SIGUSR1);
             close(fd_pipe[0]);
         }
@@ -199,6 +210,7 @@ int main(int argc, char *argv[])
 
             close(fd_pipe[0]);
 
+            //the process must handle SIGUSR1 signal
             signal(SIGUSR1, transfer_complete);
 
             //sending pid to consumer
@@ -243,6 +255,7 @@ int main(int argc, char *argv[])
                 send_array(buffer_producer);
             }
 
+            //wait until transfer is complete
             while (flag_transfer_complete == 0)
             {
                 ;

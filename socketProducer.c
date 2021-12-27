@@ -17,29 +17,36 @@
 
 #define MAX_WRITE_SIZE 65535 //max tcp data length
 
+//socket file descriptor
 int fd_socket;
+//new socket connection file descriptor
 int fd_socket_new;
+//port number
 int portno;
+
+//server and client addresses
 struct sockaddr_in server_addr, client_addr;
 
+//variables for time measurement
 struct timeval start_time, stop_time;
+//flag if the consumer received all the data
 int flag_transfer_complete = 0;
+//amount of transfer milliseconds 
 int transfer_time;
 
-sem_t mutex;
-
+//buffer size
 int size;
+
+//memory mode
 int mode;
 
 void random_string_generator(char buffer[])
 {
-    // printf("generating random array...");
     for (int i = 0; i < size; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
     }
-    // printf("\n\nrandom array generated!\n\n");
 }
 
 void transfer_complete(int sig)
@@ -58,6 +65,7 @@ void send_array(char buffer[])
     //number of cycles needed to send all the data
     int cycles = size / MAX_WRITE_SIZE + (size % MAX_WRITE_SIZE != 0 ? 1 : 0);
 
+    //sending data to consumer divided into blocks of dimension max_write_size
     for (int i = 0; i < cycles; i++)
     {
         char segment[MAX_WRITE_SIZE];
@@ -89,6 +97,7 @@ int main(int argc, char *argv[])
     }
     mode = atoi(argv[2]);
 
+    //getting port number
     if (argc < 4)
     {
         fprintf(stderr, "Producer - ERROR, no port provided\n");
@@ -110,11 +119,13 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    //set server address for connection
     bzero((char *)&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(portno);
 
+    //bind socket
     if (bind(fd_socket, (struct sockaddr *)&server_addr,
              sizeof(server_addr)) < 0)
     {
@@ -123,8 +134,10 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    //wait for connections
     listen(fd_socket, 5);
 
+    //enstablish connection
     int client_length = sizeof(client_addr);
     fd_socket_new = accept(fd_socket, (struct sockaddr *)&client_addr, &client_length);
     if (fd_socket_new < 0)
@@ -159,8 +172,8 @@ int main(int argc, char *argv[])
     {
         //increasing stack limit to let the buffer be instantieted correctly
         struct rlimit limit;
-        limit.rlim_cur = (size+5) * 1000000;
-        limit.rlim_max = (size+5) * 1000000;
+        limit.rlim_cur = (size + 5) * 1000000;
+        limit.rlim_max = (size + 5) * 1000000;
         setrlimit(RLIMIT_STACK, &limit);
 
         char buffer[size];
@@ -174,6 +187,8 @@ int main(int argc, char *argv[])
         //writing buffer on pipe
         send_array(buffer);
     }
+
+    //wait until transfer is complete
     while (flag_transfer_complete == 0)
     {
         ;

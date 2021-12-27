@@ -16,48 +16,60 @@
 #define CIRCULAR_size 10 * 1000
 #define BLOCK_NUM 100
 
+//shared memory name
 const char *shm_name = "/AOS";
+//shared memory file descriptor
 int shm_fd;
-char *ptr;
-int buffer_index = 0;
+//shared memory pointer
+char *shm_ptr;
+
+//semaphores used for circular buffer and shared memory
 
 sem_t *mutex;
 sem_t *not_empty;
 sem_t *not_full;
 
+//pid of producer process used to send signals
 pid_t producer_pid;
 
+//buffer size
 int size;
+
+//memory mode
 int mode;
+
 
 void receive_array(char buffer[])
 {
-
+    //calculate size of each block of the circular buffer
     int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
 
     //number of cycles needed to receive all the data
     int cycles = size / block_size + (size % block_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
-        //read random string from producer
+        //read string from producer
         char segment[block_size];
 
+        //every time BLOCK_NUM blocks have been received, the pointer moves back to the first address of the circular buffer
         if (i % BLOCK_NUM == 0 && i > 0)
         {
-            ptr -= block_size * BLOCK_NUM;
+            shm_ptr -= block_size * BLOCK_NUM;
         }
 
+        //coordinate with producer
         sem_wait(not_empty);
         sem_wait(mutex);
 
+        //copy received data into the buffer
         if (i == cycles - 1)
         {
 
             int j = 0;
             while ((i * block_size + j) < size)
             {
-                buffer[i * block_size + j] = *ptr;
-                ptr++;
+                buffer[i * block_size + j] = *shm_ptr;
+                shm_ptr++;
                 j++;
             }
         }
@@ -65,18 +77,15 @@ void receive_array(char buffer[])
         {
             for (int j = 0; j < block_size; j++)
             {
-                buffer[i * block_size + j] = *ptr;
-                ptr++;
+                buffer[i * block_size + j] = *shm_ptr;
+                shm_ptr++;
             }
         }
 
+        //coordinate with producer
         sem_post(mutex);
         sem_post(not_full);
     }
-    // FILE *file = fopen("cons.txt", "w");
-    // fprintf(file, "%s", buffer);
-    // fflush(file);
-    // fclose(file);
 }
 
 int main(int argc, char *argv[])
@@ -115,10 +124,12 @@ int main(int argc, char *argv[])
 
         FD_ZERO(&readfds);
         //add the selected file descriptor to the selected fd_set
-
         FD_SET(fd_pid, &readfds);
+
         sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+
     } while (sel_val <= 0);
+
     read(fd_pid, &producer_pid, sizeof(producer_pid));
     close(fd_pid);
     unlink(fifo_shared_producer_pid);
@@ -126,13 +137,15 @@ int main(int argc, char *argv[])
     //wait until producer creates shared memory and semaphores
     usleep(100000);
 
+    //open shared memory
     if ((shm_fd = shm_open(shm_name, O_RDONLY, 0666)) == -1)
     {
         perror("consumer - shm_open failure");
         exit(1);
     }
 
-    if ((ptr = mmap(NULL, CIRCULAR_size, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
+    //map shared memory
+    if ((shm_ptr = mmap(NULL, CIRCULAR_size, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
         perror("consumer - map failed");
         exit(1);
@@ -183,12 +196,13 @@ int main(int argc, char *argv[])
     //transfer complete. Sends signal to notify the producer
     kill(producer_pid, SIGUSR1);
 
-    if (shm_unlink(shm_name) == 1)
+    if (shm_unlink(shm_name) == -1)
     {
-        printf("Error removing %s\n", shm_name);
+        perror("Error removing shared memory segment:");
         exit(1);
     }
 
+    //close and delete semaphores
     sem_close(mutex);
     sem_unlink("mutex");
     sem_close(not_empty);
@@ -196,7 +210,13 @@ int main(int argc, char *argv[])
     sem_close(not_full);
     sem_unlink("not_full");
 
-    munmap(ptr, CIRCULAR_size);
+
+    //deallocate and close shared memory
+    if (munmap(shm_ptr, CIRCULAR_size) == -1)
+    {
+        perror("Error unmapping shared memory:");
+        exit(1);
+    }
     close(shm_fd);
 
     return 0;

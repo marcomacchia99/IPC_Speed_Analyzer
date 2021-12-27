@@ -16,27 +16,35 @@
 
 #define MAX_WRITE_SIZE 65535 //max tcp data length
 
+//socket file descriptor
 int fd_socket;
+//port number
 int portno;
+//server address
 struct sockaddr_in server_addr;
+//socket server
 struct hostent *server;
 
+
+//pid of producer process used to send signals
 pid_t producer_pid;
 
-sem_t mutex;
-
 //variables for select function
+
 struct timeval timeout;
 fd_set readfds;
 
+//buffer size
 int size;
+
+//memory mode
 int mode;
 
 void receive_array(char buffer[])
 {
     //number of cycles needed to send all the data
     int cycles = size / MAX_WRITE_SIZE + (size % MAX_WRITE_SIZE != 0 ? 1 : 0);
-    
+
     for (int i = 0; i < cycles; i++)
     {
 
@@ -50,11 +58,11 @@ void receive_array(char buffer[])
             FD_ZERO(&readfds);
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_socket, &readfds);
+
         } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
 
-        //read random string from producer
+        //read string from producer
         char segment[MAX_WRITE_SIZE];
-
         read(fd_socket, segment, MAX_WRITE_SIZE);
 
         //add every segment to entire buffer
@@ -73,11 +81,6 @@ void receive_array(char buffer[])
             strcat(buffer, segment);
         }
     }
-
-    // FILE *file = fopen("cons.txt", "w");
-    // fprintf(file, "%s", buffer);
-    // fflush(file);
-    // fclose(file);
 }
 
 int main(int argc, char *argv[])
@@ -98,12 +101,15 @@ int main(int argc, char *argv[])
     }
     mode = atoi(argv[2]);
 
+    //getting port number
     if (argc < 5)
     {
         fprintf(stderr, "usage %s hostname port\n", argv[0]);
         exit(0);
     }
     portno = atoi(argv[4]);
+
+    //create socket
     fd_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_socket < 0)
     {
@@ -111,6 +117,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    //get host
     server = gethostbyname(argv[3]);
     if (server == NULL)
     {
@@ -118,6 +125,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    //set server address for connection
     bzero((char *)&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     bcopy((char *)server->h_addr,
@@ -125,6 +133,7 @@ int main(int argc, char *argv[])
           server->h_length);
     server_addr.sin_port = htons(portno);
 
+    //open new connection
     if (connect(fd_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         perror("Consumer - ERROR connecting to server");
@@ -140,10 +149,12 @@ int main(int argc, char *argv[])
 
         FD_ZERO(&readfds);
         //add the selected file descriptor to the selected fd_set
-
         FD_SET(fd_socket, &readfds);
+
         sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+
     } while (sel_val <= 0);
+
     read(fd_socket, &producer_pid, sizeof(producer_pid));
 
     //switch between dynamic allocation or standard allocation

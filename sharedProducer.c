@@ -16,19 +16,30 @@
 #define CIRCULAR_size 10 * 1000
 #define BLOCK_NUM 100
 
+//shared memory name
 const char *shm_name = "/AOS";
+//shared memory file descriptor
 int shm_fd;
-char *ptr;
+//shared memory pointer
+char *shm_ptr;
 
+//variables for time measurement
 struct timeval start_time, stop_time;
+//flag if the consumer received all the data
 int flag_transfer_complete = 0;
+//amount of transfer milliseconds 
 int transfer_time;
+
+//semaphores used for circular buffer and shared memory
 
 sem_t *mutex;
 sem_t *not_empty;
 sem_t *not_full;
 
+//buffer size
 int size;
+
+//memory mode
 int mode;
 
 void transfer_complete(int sig)
@@ -44,41 +55,47 @@ void transfer_complete(int sig)
 
 void random_string_generator(char buffer[])
 {
-    // printf("generating random array...");
     for (int i = 0; i < size; i++)
     {
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
     }
-    // printf("\n\nrandom array generated!\n\n");
 }
 
 void send_array(char buffer[])
 {
+    //calculate size of each block of the circular buffer
     int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
 
     //number of cycles needed to send all the data
     int cycles = size / block_size + (size % block_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
+        //divide data in blocks
         char segment[block_size];
         for (int j = 0; j < block_size && ((i * block_size + j) < size); j++)
         {
             segment[j] = buffer[i * block_size + j];
         }
 
+        //every time BLOCK_NUM blocks have been sent, the pointer moves back to the first address of the circular buffer
         if (i % BLOCK_NUM == 0 && i > 0)
         {
-            ptr -= block_size * BLOCK_NUM;
+            shm_ptr -= block_size * BLOCK_NUM;
         }
 
+        //coordinate with consumer
         sem_wait(not_full);
         sem_wait(mutex);
+
         for (int k = 0; k < strlen(segment); k++)
         {
-            *ptr = segment[k];
-            ptr++;
+            //write each character
+            *shm_ptr = segment[k];
+            shm_ptr++;
         }
+
+        //coordinate with producer
         sem_post(mutex);
         sem_post(not_empty);
     }
@@ -106,8 +123,10 @@ int main(int argc, char *argv[])
     //randomizing seed for random string generator
     srand(time(NULL));
 
+    //the process must handle SIGUSR1 signal
     signal(SIGUSR1, transfer_complete);
 
+    //sending pid to consumer
     char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
     mkfifo(fifo_shared_producer_pid, 0666);
     int fd_pid = open(fifo_shared_producer_pid, O_WRONLY);
@@ -116,14 +135,12 @@ int main(int argc, char *argv[])
     close(fd_pid);
     unlink(fifo_shared_producer_pid);
 
+    //open shared memory
     if ((shm_fd = shm_open(shm_name, O_CREAT | O_RDWR | O_TRUNC, 0666)) == -1)
     {
         perror("producer - shm_open failure");
         exit(1);
     }
-
-    // shm_size = sysconf(_SC_PAGE_size);
-    // printf("size %d\n",SHM_size);
 
     //setting shared memory size
     if (ftruncate(shm_fd, CIRCULAR_size) == -1)
@@ -132,13 +149,12 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if ((ptr = mmap(0, CIRCULAR_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
+    //map shared memory
+    if ((shm_ptr = mmap(0, CIRCULAR_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
         perror("producer - map failed");
         exit(1);
     }
-
-    // ptr->in = ptr->out = 0;
 
     //initialize circular buffer semaphores
     if ((mutex = sem_open("mutex", O_CREAT, 0644, 1)) == MAP_FAILED)
@@ -213,6 +229,7 @@ int main(int argc, char *argv[])
         send_array(buffer);
     }
 
+    //wait until transfer is complete
     while (flag_transfer_complete == 0)
     {
         ;
@@ -221,6 +238,7 @@ int main(int argc, char *argv[])
     printf("\tshared memory time: %d ms\n", transfer_time);
     fflush(stdout);
 
+    //close and delete semaphores
     sem_close(mutex);
     sem_unlink("mutex");
     sem_close(not_empty);
@@ -228,7 +246,13 @@ int main(int argc, char *argv[])
     sem_close(not_full);
     sem_unlink("not_full");
 
-    munmap(ptr, CIRCULAR_size);
+    //deallocate and close shared memory
+    if (munmap(shm_ptr, CIRCULAR_size) == -1)
+    {
+        perror("Error unmapping shared memory:");
+        exit(1);
+    }
+
     close(shm_fd);
 
     return 0;

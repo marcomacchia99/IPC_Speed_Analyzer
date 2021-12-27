@@ -10,16 +10,25 @@
 #include <stdlib.h>
 #include <signal.h>
 
+//pipe file descriptor
 int fd_pipe;
+//maximum size of writed data
 int max_write_size;
 
+//pid of producer process used to send signals
 pid_t producer_pid;
 
+//buffer size
 int size;
+
+//memory mode
 int mode;
+
+//variable use to get and set resource limits
 struct rlimit limit;
 
 //variables for select function
+
 struct timeval timeout;
 fd_set readfds;
 
@@ -46,10 +55,9 @@ void receive_array(char buffer[])
             FD_SET(fd_pipe, &readfds);
         } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
 
-        //read random string from producer
+        //read string from producer
         char segment[max_write_size];
         read(fd_pipe, segment, max_write_size);
-        // printf("read: %ld\n", read(fd_pipe, segment, size));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
@@ -67,10 +75,6 @@ void receive_array(char buffer[])
             strcat(buffer, segment);
         }
     }
-    // FILE *file = fopen("cons.txt", "w");
-    // fprintf(file, "%s", buffer);
-    // fflush(file);
-    // fclose(file);
 }
 
 int main(int argc, char *argv[])
@@ -110,10 +114,12 @@ int main(int argc, char *argv[])
 
         FD_ZERO(&readfds);
         //add the selected file descriptor to the selected fd_set
-
         FD_SET(fd_pid_producer, &readfds);
+
         sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+
     } while (sel_val <= 0);
+
     read(fd_pid_producer, &producer_pid, sizeof(producer_pid));
     close(fd_pid_producer);
     unlink(fifo_named_producer_pid);
