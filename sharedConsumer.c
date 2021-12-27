@@ -27,16 +27,15 @@ sem_t *not_full;
 
 pid_t producer_pid;
 
-//variables for select function
-struct timeval timeout;
-fd_set readfds;
-
 int size;
+int mode;
 
 void receive_array(char buffer[])
 {
 
     int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
+
+    //number of cycles needed to receive all the data
     int cycles = size / block_size + (size % block_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
@@ -91,31 +90,41 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
 
-    //increasing stack limit to let the buffer be instantieted correctly
-    struct rlimit limit;
-    limit.rlim_cur = 105 * 1000000;
-    limit.rlim_max = 105 * 1000000;
-    setrlimit(RLIMIT_STACK, &limit);
+    //getting mode from console
+    if (argc < 3)
+    {
+        fprintf(stderr, "Consumer - ERROR, no mode provided\n");
+        exit(0);
+    }
+    mode = atoi(argv[2]);
 
-    char buffer[size];
-
+    //receiving pid from producer
     char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
     mkfifo(fifo_shared_producer_pid, 0666);
     int fd_pid = open(fifo_shared_producer_pid, O_RDONLY);
-    int sel;
-    do
+
+    //variables for select function
+    struct timeval timeout;
+    fd_set readfds;
+
+    int sel_val;
+    do //wait until pid is ready
     {
         timeout.tv_sec = 0;
         timeout.tv_usec = 1000;
+
         FD_ZERO(&readfds);
         //add the selected file descriptor to the selected fd_set
+
         FD_SET(fd_pid, &readfds);
-        sel = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
-    } while (sel <= 0);
+        sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+    } while (sel_val <= 0);
     read(fd_pid, &producer_pid, sizeof(producer_pid));
     close(fd_pid);
     unlink(fifo_shared_producer_pid);
-    sleep(1);
+
+    //wait until producer creates shared memory and semaphores
+    usleep(100000);
 
     if ((shm_fd = shm_open(shm_name, O_RDONLY, 0666)) == -1)
     {
@@ -146,7 +155,30 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    receive_array(buffer);
+    //switch between dynamic allocation or standard allocation
+    if (mode == 0)
+    {
+        //dynamic allocation of buffer
+        char *buffer = (char *)malloc(size);
+
+        //receive array from producer
+        receive_array(buffer);
+
+        //delete buffer from memory
+        free(buffer);
+    }
+    else
+    {
+        //increasing stack limit to let the buffer be instantieted correctly
+        struct rlimit limit;
+        limit.rlim_cur = (size + 5) * 1000000;
+        limit.rlim_max = (size + 5) * 1000000;
+        setrlimit(RLIMIT_STACK, &limit);
+
+        char buffer[size];
+        //receive array from producer
+        receive_array(buffer);
+    }
 
     //transfer complete. Sends signal to notify the producer
     kill(producer_pid, SIGUSR1);

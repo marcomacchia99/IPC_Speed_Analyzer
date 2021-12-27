@@ -29,6 +29,7 @@ sem_t *not_empty;
 sem_t *not_full;
 
 int size;
+int mode;
 
 void transfer_complete(int sig)
 {
@@ -54,14 +55,10 @@ void random_string_generator(char buffer[])
 
 void send_array(char buffer[])
 {
-    // FILE *file = fopen("prod.txt", "w");
-    // fprintf(file, "%s", buffer);
-    // fflush(file);
-    // fclose(file);
     int block_size = (CIRCULAR_size / BLOCK_NUM) + (CIRCULAR_size % BLOCK_NUM != 0 ? 1 : 0);
 
+    //number of cycles needed to send all the data
     int cycles = size / block_size + (size % block_size != 0 ? 1 : 0);
-    //sending data divided in blocks of max_write_size size
     for (int i = 0; i < cycles; i++)
     {
         char segment[block_size];
@@ -98,13 +95,13 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
 
-    //increasing stack limit to let the buffer be instantieted correctly
-    struct rlimit limit;
-    limit.rlim_cur = 105 * 1000000;
-    limit.rlim_max = 105 * 1000000;
-    setrlimit(RLIMIT_STACK, &limit);
-
-    char buffer[size];
+    //getting mode from console
+    if (argc < 3)
+    {
+        fprintf(stderr, "Producer - ERROR, no mode provided\n");
+        exit(0);
+    }
+    mode = atoi(argv[2]);
 
     //randomizing seed for random string generator
     srand(time(NULL));
@@ -178,19 +175,50 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    random_string_generator(buffer);
+    //switch between dynamic allocation or standard allocation
+    if (mode == 0)
+    {
+        //dynamic allocation of buffer
+        char *buffer = (char *)malloc(size);
 
-    //get time of when the transfer has started
-    gettimeofday(&start_time, NULL);
+        //generating random string
+        random_string_generator(buffer);
 
-    send_array(buffer);
+        //get time of when the transfer has started
+        gettimeofday(&start_time, NULL);
+
+        //writing buffer on pipe
+        send_array(buffer);
+
+        //delete buffer from memory
+        free(buffer);
+    }
+    else
+    {
+        //increasing stack limit to let the buffer be instantieted correctly
+        struct rlimit limit;
+        limit.rlim_cur = (size + 5) * 1000000;
+        limit.rlim_max = (size + 5) * 1000000;
+        setrlimit(RLIMIT_STACK, &limit);
+
+        char buffer[size];
+
+        //generating random string
+        random_string_generator(buffer);
+
+        //get time of when the transfer has started
+        gettimeofday(&start_time, NULL);
+
+        //writing buffer on pipe
+        send_array(buffer);
+    }
 
     while (flag_transfer_complete == 0)
     {
         ;
     }
 
-    printf("shared memory time: %d ms\n", transfer_time);
+    printf("\tshared memory time: %d ms\n", transfer_time);
     fflush(stdout);
 
     sem_close(mutex);

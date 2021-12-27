@@ -20,6 +20,7 @@ int transfer_time;
 int max_write_size;
 
 int size;
+int mode;
 
 void random_string_generator(char buffer_producer[])
 {
@@ -45,11 +46,7 @@ void transfer_complete(int sig)
 
 void send_array(char buffer_producer[])
 {
-    // FILE * file = fopen("prod.txt","w");
-    // fprintf(file,"%s",buffer_producer);
-    // fflush(file);
-    // fclose(file);
-
+    //number of cycles needed to send all the data
     int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
@@ -68,20 +65,22 @@ void receive_array(char buffer_consumer[])
     //variables for select function
     struct timeval timeout;
     fd_set readfds;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 1000;
 
+    //number of cycles needed to send all the do 
     int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
     for (int i = 0; i < cycles; i++)
     {
-        FD_ZERO(&readfds);
-        //add the selected file descriptor to the selected fd_set
-        FD_SET(fd_pipe[0], &readfds);
-
-        while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0)
+        //wait until data is ready
+        do
         {
-            ;
-        }
+            //set timeout for select
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 1000;
+
+            FD_ZERO(&readfds);
+            //add the selected file descriptor to the selected fd_set
+            FD_SET(fd_pipe[0], &readfds);
+        } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
 
         //read random string from producer
         char segment[max_write_size];
@@ -103,16 +102,7 @@ void receive_array(char buffer_consumer[])
 
             strcat(buffer_consumer, segment);
         }
-
-        // for (int j = 0; j < max_write_size && ((i * max_write_size + j) < size); j++)
-        // {
-        //     buffer[i * max_write_size + j] = segment[j];
-        // }
     }
-    //     FILE *file = fopen("cons.txt", "w");
-    // fprintf(file, "%s", buffer_consumer);
-    // fflush(file);
-    // fclose(file);
 }
 
 int main(int argc, char *argv[])
@@ -125,11 +115,13 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
 
-    //increasing stack limit to let the buffers be instantieted correctly
-    struct rlimit limit;
-    limit.rlim_cur = 105 * 1000000;
-    limit.rlim_max = 105 * 1000000;
-    setrlimit(RLIMIT_STACK, &limit);
+    //getting mode from console
+    if (argc < 3)
+    {
+        fprintf(stderr, "ERROR, no mode provided\n");
+        exit(0);
+    }
+    mode = atoi(argv[2]);
 
     //randomizing seed for random string generator
     srand(time(NULL));
@@ -150,23 +142,60 @@ int main(int argc, char *argv[])
         pid_t pid;
         if ((pid = fork()) == 0) //consumer
         {
-            char buffer_consumer[size];
 
             close(fd_pipe[1]);
 
             //receiving producer pid
             pid_t pid_producer;
+
+            //variables for select function
+            struct timeval timeout;
+            fd_set readfds;
+
+            int sel_val;
+            do //wait until pid is ready
+            {
+                timeout.tv_sec = 0;
+                timeout.tv_usec = 1000;
+
+                FD_ZERO(&readfds);
+                //add the selected file descriptor to the selected fd_set
+
+                FD_SET(fd_pipe[0], &readfds);
+                sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+            } while (sel_val <= 0);
             read(fd_pipe[0], &pid_producer, sizeof(pid_t));
 
-            // printf("read: %ld\n",read(fd_pipe[0], buffer_consumer, size));
-            receive_array(buffer_consumer);
+            //switch between dynamic allocation or standard allocation
+            if (mode == 0)
+            {
+                //dynamic allocation of buffer
+                char *buffer_consumer = (char *)malloc(size);
+
+                //receive array from producer
+                receive_array(buffer_consumer);
+
+                //delete buffer from memory
+                free(buffer_consumer);
+            }
+            else
+            {
+                //increasing stack limit to let the buffer be instantieted correctly
+                struct rlimit limit;
+                limit.rlim_cur = (size + 5) * 1000000;
+                limit.rlim_max = (size + 5) * 1000000;
+                setrlimit(RLIMIT_STACK, &limit);
+
+                char buffer_consumer[size];
+                //receive array from producer
+                receive_array(buffer_consumer);
+            }
+
             kill(pid_producer, SIGUSR1);
             close(fd_pipe[0]);
         }
         else
         { //producer
-
-            char buffer_producer[size];
 
             close(fd_pipe[0]);
 
@@ -176,23 +205,50 @@ int main(int argc, char *argv[])
             pid_t pid_producer = getpid();
             write(fd_pipe[1], &pid_producer, sizeof(pid_t));
 
-            //generating random string
-            random_string_generator(buffer_producer);
+            //switch between dynamic allocation or standard allocation
+            if (mode == 0)
+            {
+                //dynamic allocation of buffer
+                char *buffer_producer = (char *)malloc(size);
 
-            //get time of when the transfer has started
-            gettimeofday(&start_time, NULL);
+                //generating random string
+                random_string_generator(buffer_producer);
 
-            //writing buffer on pipe
+                //get time of when the transfer has started
+                gettimeofday(&start_time, NULL);
 
-            send_array(buffer_producer);
-            // printf("write: %ld\n",write(fd_pipe[1], buffer_producer, size));
+                //writing buffer on pipe
+                send_array(buffer_producer);
+
+                //delete buffer from memory
+                free(buffer_producer);
+            }
+            else
+            {
+                //increasing stack limit to let the buffer be instantieted correctly
+                struct rlimit limit;
+                limit.rlim_cur = (size + 5) * 1000000;
+                limit.rlim_max = (size + 5) * 1000000;
+                setrlimit(RLIMIT_STACK, &limit);
+
+                char buffer_producer[size];
+
+                //generating random string
+                random_string_generator(buffer_producer);
+
+                //get time of when the transfer has started
+                gettimeofday(&start_time, NULL);
+
+                //writing buffer on pipe
+                send_array(buffer_producer);
+            }
 
             while (flag_transfer_complete == 0)
             {
                 ;
             }
 
-            printf("unnamed pipe time: %d ms\n", transfer_time);
+            printf("\tunnamed pipe time: %d ms\n", transfer_time);
             fflush(stdout);
 
             //close and delete fifo

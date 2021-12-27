@@ -14,12 +14,12 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
+#define MAX_WRITE_SIZE 65535 //max tcp data length
+
 int fd_socket;
 int portno;
 struct sockaddr_in server_addr;
 struct hostent *server;
-
-int max_write_size;
 
 pid_t producer_pid;
 
@@ -30,46 +30,41 @@ struct timeval timeout;
 fd_set readfds;
 
 int size;
+int mode;
 
 void receive_array(char buffer[])
 {
-
-    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
+    //number of cycles needed to send all the data
+    int cycles = size / MAX_WRITE_SIZE + (size % MAX_WRITE_SIZE != 0 ? 1 : 0);
+    
     for (int i = 0; i < cycles; i++)
     {
 
-        int sel;
+        //wait until data is ready
         do
         {
+            //set timeout for select
             timeout.tv_sec = 0;
             timeout.tv_usec = 1000;
+
             FD_ZERO(&readfds);
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_socket, &readfds);
-            sel = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
-        } while (sel <= 0);
-        // {
-        //     printf("select\n");
-        //     ;
-        // }
+        } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
 
         //read random string from producer
-        char segment[max_write_size];
+        char segment[MAX_WRITE_SIZE];
 
-        // sem_wait(&mutex);
-        // printf("%d - read: %ld\n", i, read(fd_socket, segment, max_write_size));
-        read(fd_socket, segment, max_write_size);
-
-        // sem_post(&mutex);
+        read(fd_socket, segment, MAX_WRITE_SIZE);
 
         //add every segment to entire buffer
         if (i == cycles - 1)
         {
 
             int j = 0;
-            while ((i * max_write_size + j) < size)
+            while ((i * MAX_WRITE_SIZE + j) < size)
             {
-                buffer[i * max_write_size + j] = segment[j];
+                buffer[i * MAX_WRITE_SIZE + j] = segment[j];
                 j++;
             }
         }
@@ -78,6 +73,7 @@ void receive_array(char buffer[])
             strcat(buffer, segment);
         }
     }
+
     // FILE *file = fopen("cons.txt", "w");
     // fprintf(file, "%s", buffer);
     // fflush(file);
@@ -94,20 +90,20 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
 
-    //increasing stack limit to let the buffer be instantieted correctly
-    struct rlimit limit;
-    limit.rlim_cur = 105 * 1000000;
-    limit.rlim_max = 105 * 1000000;
-    setrlimit(RLIMIT_STACK, &limit);
-
-    char buffer[size];
-
+    //getting mode from console
     if (argc < 4)
+    {
+        fprintf(stderr, "Consumer - ERROR, no mode provided\n");
+        exit(0);
+    }
+    mode = atoi(argv[2]);
+
+    if (argc < 5)
     {
         fprintf(stderr, "usage %s hostname port\n", argv[0]);
         exit(0);
     }
-    portno = atoi(argv[3]);
+    portno = atoi(argv[4]);
     fd_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_socket < 0)
     {
@@ -115,7 +111,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    server = gethostbyname(argv[2]);
+    server = gethostbyname(argv[3]);
     if (server == NULL)
     {
         fprintf(stderr, "Consumer - ERROR, no such host\n");
@@ -136,41 +132,49 @@ int main(int argc, char *argv[])
     }
 
     //receiving pid from producer
-    int sel;
-    do
+    int sel_val;
+    do //wait until pid is ready
     {
         timeout.tv_sec = 0;
         timeout.tv_usec = 1000;
+
         FD_ZERO(&readfds);
         //add the selected file descriptor to the selected fd_set
+
         FD_SET(fd_socket, &readfds);
-        sel = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
-    } while (sel <= 0);
+        sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+    } while (sel_val <= 0);
     read(fd_socket, &producer_pid, sizeof(producer_pid));
 
-    //initialize semaphore for coordinating reading and writing
-    // if (sem_init(&mutex, 1, 1) == 1)
-    // {
-    //     perror("semaphore initialization failed");
-    // }
+    //switch between dynamic allocation or standard allocation
+    if (mode == 0)
+    {
+        //dynamic allocation of buffer
+        char *buffer = (char *)malloc(size);
 
-    //defining max size for operations and files
+        //receive array from producer
+        receive_array(buffer);
 
-    int socklen = 4;
-    int send_buffer_size;
-    int receive_buffer_size;
-    getsockopt(fd_socket, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, &socklen);
-    getsockopt(fd_socket, SOL_SOCKET, SO_RCVBUF, &receive_buffer_size, &socklen);
-    max_write_size = send_buffer_size <= receive_buffer_size ? send_buffer_size : receive_buffer_size;
-    max_write_size = 65000;
+        //delete buffer from memory
+        free(buffer);
+    }
+    else
+    {
+        //increasing stack limit to let the buffer be instantieted correctly
+        struct rlimit limit;
+        limit.rlim_cur = (size + 5) * 1000000;
+        limit.rlim_max = (size + 5) * 1000000;
+        setrlimit(RLIMIT_STACK, &limit);
 
-    //receive array from producer
-    receive_array(buffer);
+        char buffer[size];
+        //receive array from producer
+        receive_array(buffer);
+    }
 
     //transfer complete. Sends signal to notify the producer
     kill(producer_pid, SIGUSR1);
 
-    //close and delete fifo
+    //close socket
     close(fd_socket);
 
     return 0;

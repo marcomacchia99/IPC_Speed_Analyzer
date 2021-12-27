@@ -15,6 +15,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#define MAX_WRITE_SIZE 65535 //max tcp data length
+
 int fd_socket;
 int fd_socket_new;
 int portno;
@@ -23,11 +25,11 @@ struct sockaddr_in server_addr, client_addr;
 struct timeval start_time, stop_time;
 int flag_transfer_complete = 0;
 int transfer_time;
-int max_write_size;
 
 sem_t mutex;
 
 int size;
+int mode;
 
 void random_string_generator(char buffer[])
 {
@@ -53,26 +55,18 @@ void transfer_complete(int sig)
 
 void send_array(char buffer[])
 {
-    // FILE *file = fopen("prod.txt", "w");
-    // fprintf(file, "%s", buffer);
-    // fflush(file);
-    // fclose(file);
-    int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
-    //sending data divided in blocks of max_write_size size
+    //number of cycles needed to send all the data
+    int cycles = size / MAX_WRITE_SIZE + (size % MAX_WRITE_SIZE != 0 ? 1 : 0);
+
     for (int i = 0; i < cycles; i++)
     {
-        char segment[max_write_size];
-        for (int j = 0; j < max_write_size && ((i * max_write_size + j) < size); j++)
+        char segment[MAX_WRITE_SIZE];
+        for (int j = 0; j < MAX_WRITE_SIZE && ((i * MAX_WRITE_SIZE + j) < size); j++)
         {
-            segment[j] = buffer[i * max_write_size + j];
+            segment[j] = buffer[i * MAX_WRITE_SIZE + j];
         }
-        // while(sem_trywait(&mutex)==0){
-        //     usleep(1000);
-        // }
-        // sem_wait(&mutex);
-        // printf("%d - write: %ld\n", i, write(fd_socket_new, segment, max_write_size));
-        write(fd_socket_new, segment, max_write_size);
-        // sem_post(&mutex);
+
+        write(fd_socket_new, segment, MAX_WRITE_SIZE);
     }
 }
 
@@ -87,20 +81,20 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
 
+    //getting mode from console
     if (argc < 3)
+    {
+        fprintf(stderr, "Producer - ERROR, no mode provided\n");
+        exit(0);
+    }
+    mode = atoi(argv[2]);
+
+    if (argc < 4)
     {
         fprintf(stderr, "Producer - ERROR, no port provided\n");
         exit(0);
     }
-    portno = atoi(argv[2]);
-
-    //increasing stack limit to let the buffer be instantieted correctly
-    struct rlimit limit;
-    limit.rlim_cur = 105 * 1000000;
-    limit.rlim_max = 105 * 1000000;
-    setrlimit(RLIMIT_STACK, &limit);
-
-    char buffer[size];
+    portno = atoi(argv[3]);
 
     //randomizing seed for random string generator
     srand(time(NULL));
@@ -140,41 +134,52 @@ int main(int argc, char *argv[])
     }
 
     //sending pid to consumer
-
     pid_t pid = getpid();
     write(fd_socket_new, &pid, sizeof(pid));
 
-    //initialize semaphore for coordinating reading and writing
-    if (sem_init(&mutex, 1, 1) == 1)
+    //switch between dynamic allocation or standard allocation
+    if (mode == 0)
     {
-        perror("semaphore initialization failed");
+        //dynamic allocation of buffer
+        char *buffer = (char *)malloc(size);
+
+        //generating random string
+        random_string_generator(buffer);
+
+        //get time of when the transfer has started
+        gettimeofday(&start_time, NULL);
+
+        //writing buffer on pipe
+        send_array(buffer);
+
+        //delete buffer from memory
+        free(buffer);
     }
+    else
+    {
+        //increasing stack limit to let the buffer be instantieted correctly
+        struct rlimit limit;
+        limit.rlim_cur = (size+5) * 1000000;
+        limit.rlim_max = (size+5) * 1000000;
+        setrlimit(RLIMIT_STACK, &limit);
 
-    //defining max size for operations and files
+        char buffer[size];
 
-    int socklen = 4;
-    int send_buffer_size;
-    int receive_buffer_size;
-    getsockopt(fd_socket_new, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, &socklen);
-    getsockopt(fd_socket_new, SOL_SOCKET, SO_RCVBUF, &receive_buffer_size, &socklen);
-    max_write_size = send_buffer_size <= receive_buffer_size ? send_buffer_size : receive_buffer_size;
-    max_write_size = 65000;
-    //generating random strings
+        //generating random string
+        random_string_generator(buffer);
 
-    random_string_generator(buffer);
+        //get time of when the transfer has started
+        gettimeofday(&start_time, NULL);
 
-    //get time of when the transfer has started
-    gettimeofday(&start_time, NULL);
-
-    //writing buffer on socket
-    send_array(buffer);
-
+        //writing buffer on pipe
+        send_array(buffer);
+    }
     while (flag_transfer_complete == 0)
     {
         ;
     }
 
-    printf("socket time: %d ms\n", transfer_time);
+    printf("\tsocket time: %d ms\n", transfer_time);
     fflush(stdout);
 
     //close socket
