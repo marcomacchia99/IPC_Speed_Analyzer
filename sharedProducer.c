@@ -148,21 +148,21 @@ int main(int argc, char *argv[])
     //open shared memory
     if ((shm_fd = shm_open(shm_name, O_CREAT | O_RDWR | O_TRUNC, 0666)) == -1)
     {
-        perror("producer - shm_open failure");
+        perror("Producer - shm_open failure");
         exit(1);
     }
 
     //setting shared memory size
     if (ftruncate(shm_fd, circular_size) == -1)
     {
-        perror("producer - ftruncate failure");
+        perror("Producer - ftruncate failure");
         exit(1);
     }
 
     //map shared memory
     if ((shm_ptr = mmap(0, circular_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
-        perror("producer - map failed");
+        perror("Producer - map failed");
         exit(1);
     }
     //original shared memory pointer, used with munmap
@@ -171,35 +171,35 @@ int main(int argc, char *argv[])
     //initialize circular buffer semaphores
     if ((mutex = sem_open("mutex", O_CREAT, 0644, 1)) == MAP_FAILED)
     {
-        perror("producer - sem_open failed");
+        perror("Producer - sem_open failed");
         exit(1);
     }
     if ((not_full = sem_open("not_full", O_CREAT, 0644, BLOCK_NUM)) == MAP_FAILED)
     {
-        perror("producer - sem_open failed");
+        perror("Producer - sem_open failed");
         exit(1);
     }
     if ((not_empty = sem_open("not_empty", O_CREAT, 0644, 0)) == MAP_FAILED)
     {
-        perror("producer - sem_open failed");
+        perror("Producer - sem_open failed");
         exit(1);
     }
 
     if (sem_init(mutex, 1, 1) == -1)
     {
-        perror("producer - sem_init failed");
+        perror("Producer - sem_init failed");
         exit(1);
     }
 
     if (sem_init(not_full, 1, BLOCK_NUM) == -1)
     {
-        perror("producer - sem_init failed");
+        perror("Producer - sem_init failed");
         exit(1);
     }
 
     if (sem_init(not_empty, 1, 0) == -1)
     {
-        perror("producer - sem_init failed");
+        perror("Producer - sem_init failed");
         exit(1);
     }
 

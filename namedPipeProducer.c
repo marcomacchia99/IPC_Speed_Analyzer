@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     //getting mode from console
     if (argc < 3)
     {
-        fprintf(stderr, "Consumer - ERROR, no mode provided\n");
+        fprintf(stderr, "Producer - ERROR, no mode provided\n");
         exit(0);
     }
     mode = atoi(argv[2]);

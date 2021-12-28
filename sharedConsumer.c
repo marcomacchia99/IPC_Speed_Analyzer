@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     //getting circular budffer size from console
     if (argc < 4)
     {
-        fprintf(stderr, "Producer - ERROR, no circular size provided\n");
+        fprintf(stderr, "Consumer - ERROR, no circular size provided\n");
         exit(0);
     }
     circular_size = atoi(argv[3]) * 1000;
@@ -149,14 +149,14 @@ int main(int argc, char *argv[])
     //open shared memory
     if ((shm_fd = shm_open(shm_name, O_RDONLY, 0666)) == -1)
     {
-        perror("consumer - shm_open failure");
+        perror("Consumer - shm_open failure");
         exit(1);
     }
 
     //map shared memory
     if ((shm_ptr = mmap(NULL, circular_size, PROT_READ, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
-        perror("consumer - map failed");
+        perror("Consumer - map failed");
         exit(1);
     }
     //original shared memory pointer, used with munmap
@@ -165,17 +165,17 @@ int main(int argc, char *argv[])
     //initialize circular buffer semaphores
     if ((mutex = sem_open("mutex", 0, 0644, 1)) == MAP_FAILED)
     {
-        perror("consumer - sem_open failed");
+        perror("Consumer - sem_open failed");
         exit(1);
     }
     if ((not_full = sem_open("not_full", 0, 0644, BLOCK_NUM)) == MAP_FAILED)
     {
-        perror("consumer - sem_open failed");
+        perror("Consumer - sem_open failed");
         exit(1);
     }
     if ((not_empty = sem_open("not_empty", 0, 0644, 0)) == MAP_FAILED)
     {
-        perror("consumer - sem_open failed");
+        perror("Consumer - sem_open failed");
         exit(1);
     }
 
