@@ -2,30 +2,32 @@
 
 unzip -q source.zip -d $1
 
-cd $1/motor_x
-gcc motorX.c -o motorX
+cd $1/namedPipe
+gcc namedPipeProducer.c -o namedPipeProducer
+gcc namedPipeConsumer.c -o namedPipeConsumer
 
 cd ..
-cd motor_z
-gcc motorZ.c -o motorZ
+cd unnamedPipe
+gcc unnamedPipe.c -o unnamedPipe
 
 cd ..
-cd command_console
-gcc commandConsole.c -o commandConsole
+cd socket
+gcc socketProducer.c -o socketProducer -lpthread
+gcc socketConsumer.c -o socketConsumer -lpthread
 
 cd ..
-cd inspection_console
-gcc inspectionConsole.c -o inspectionConsole
-
-cd ..
-cd starter
-gcc starter.c -o starter
-
-cd ..
-cd watchdog
-gcc watchdog.c -o watchdog
+cd shared_memory
+gcc sharedProducer.c -o sharedProducer -lrt -pthread
+gcc sharedConsumer.c -o sharedConsumer -lrt -pthread
 
 cd ..
 mkdir logs
 
 echo install completed
+
+
+
+
+
+
+
