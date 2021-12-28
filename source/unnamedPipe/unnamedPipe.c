@@ -123,7 +123,7 @@ void receive_array(char buffer_consumer[])
         else
         {
 
-            check(strcat(buffer_consumer, segment));
+            strcat(buffer_consumer, segment);
         }
     }
 }
@@ -131,7 +131,14 @@ void receive_array(char buffer_consumer[])
 int main(int argc, char *argv[])
 {
 
-    logfile = fopen("../logs/unnamed_pipe.txt","w");
+//open Log file
+    logfile = fopen("unnamed_pipe.txt","w");
+    if(logfile==NULL){
+	printf("an error occured while creating iUnnamed_pipe's 	log File\n");
+	return 0;
+	} 
+	fprintf(logfile, "******log file created******\n");
+	fflush(logfile);
 
     //getting size from console
     if (argc < 2)

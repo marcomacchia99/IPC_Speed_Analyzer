@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -33,6 +33,21 @@ int mode;
 //variable use to get and set resource limits
 struct rlimit limit;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno)); 
+		fflush(logfile);
+        	fclose(logfile);
+		exit(-1);
+	}
+	return retval;
+}
+
 void random_string_generator(char buffer[])
 {
     for (int i = 0; i < size; i++)
@@ -46,7 +61,7 @@ void transfer_complete(int sig)
 {
     if (sig == SIGUSR1)
     {
-        gettimeofday(&stop_time, NULL);
+        check(gettimeofday(&stop_time, NULL));
         //calculating time in milliseconds
         transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec) / 1000;
         flag_transfer_complete = 1;
@@ -67,12 +82,23 @@ void send_array(char buffer[])
         {
             segment[j] = buffer[i * max_write_size + j];
         }
-        write(fd_pipe, segment, max_write_size);
+        check(write(fd_pipe, segment, max_write_size));
     }
 }
 
 int main(int argc, char *argv[])
 {
+
+//open Log file
+    logfile = fopen("Named_pipe.txt","w");
+    if(logfile==NULL){
+	printf("an error occured while creating Named_pipe's 	log File\n");
+	return 0;
+	} 
+	fprintf(logfile, "******log file created******\n");
+	fflush(logfile);
+	
+	
     //getting size from console
     if (argc < 2)
     {
@@ -84,7 +110,7 @@ int main(int argc, char *argv[])
     //getting mode from console
     if (argc < 3)
     {
-        fprintf(stderr, "Producer - ERROR, no mode provided\n");
+        fprintf(stderr, "Consumer - ERROR, no mode provided\n");
         exit(0);
     }
     mode = atoi(argv[2]);
@@ -100,23 +126,23 @@ int main(int argc, char *argv[])
     char *fifo_named_producer_pid = "/tmp/named_producer_pid";
 
     //create fifo
-    mkfifo(fifo_named_pipe, 0666);
-    mkfifo(fifo_named_producer_pid, 0666);
+    check(mkfifo(fifo_named_pipe, 0666));
+    check(mkfifo(fifo_named_producer_pid, 0666));
 
     //sending pid to consumer
-    int fd_pid_producer = open(fifo_named_producer_pid, O_WRONLY);
+    int fd_pid_producer = check(open(fifo_named_producer_pid, O_WRONLY));
     pid_t pid = getpid();
-    write(fd_pid_producer, &pid, sizeof(pid));
-    close(fd_pid_producer);
-    unlink(fifo_named_producer_pid);
+    check(write(fd_pid_producer, &pid, sizeof(pid)));
+    check(close(fd_pid_producer));
+    check(unlink(fifo_named_producer_pid));
 
     //open fifo
-    fd_pipe = open(fifo_named_pipe, O_WRONLY);
+    fd_pipe = check(open(fifo_named_pipe, O_WRONLY));
 
     //defining max size for operations and files
-    getrlimit(RLIMIT_NOFILE, &limit);
+    check(getrlimit(RLIMIT_NOFILE, &limit));
     max_write_size = limit.rlim_max;
-    fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size);
+    check(fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size));
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -128,20 +154,20 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
 
         //delete buffer from memory
-        free(buffer);
+        free(buffer); /******check(*/
     }
     else
     {
         //increasing stack limit to let the buffer be instantieted correctly
         limit.rlim_cur = (size + 5) * 1000000;
         limit.rlim_max = (size + 5) * 1000000;
-        setrlimit(RLIMIT_STACK, &limit);
+        check(setrlimit(RLIMIT_STACK, &limit));
 
         char buffer[size];
 
@@ -149,7 +175,7 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
@@ -165,8 +191,8 @@ int main(int argc, char *argv[])
     fflush(stdout);
 
     //close and delete fifo
-    close(fd_pipe);
-    unlink(fifo_named_pipe);
+    check(close(fd_pipe));
+    check(unlink(fifo_named_pipe));
 
     return 0;
 }

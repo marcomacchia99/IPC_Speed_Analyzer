@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -32,6 +32,21 @@ struct rlimit limit;
 struct timeval timeout;
 fd_set readfds;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno)); 
+		fflush(logfile);
+        	fclose(logfile);
+		exit(-1);
+	}
+	return retval;
+}
+
 void receive_array(char buffer[])
 {
     //set timeout for select
@@ -53,11 +68,11 @@ void receive_array(char buffer[])
             FD_ZERO(&readfds);
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_pipe, &readfds);
-        } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
+        } while (check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout)) < 0);
 
         //read string from producer
         char segment[max_write_size];
-        read(fd_pipe, segment, max_write_size);
+        check(read(fd_pipe, segment, max_write_size));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
@@ -79,6 +94,16 @@ void receive_array(char buffer[])
 
 int main(int argc, char *argv[])
 {
+
+   //open Log file
+    logfile = fopen("Named_pipe.txt","w");
+    if(logfile==NULL){
+	printf("an error occured while creating Named_pipe's 	log File\n");
+	return 0;
+	} 
+	//fprintf(logfile, "******log file created******\n");
+	//fflush(logfile);
+	
     //getting size from console
     if (argc < 2)
     {
@@ -100,11 +125,11 @@ int main(int argc, char *argv[])
     char *fifo_named_producer_pid = "/tmp/named_producer_pid";
 
     //create fifo
-    mkfifo(fifo_named_pipe, 0666);
-    mkfifo(fifo_named_producer_pid, 0666);
+    check(mkfifo(fifo_named_pipe, 0666));
+    check(mkfifo(fifo_named_producer_pid, 0666));
 
     //receiving pid from producer
-    int fd_pid_producer = open(fifo_named_producer_pid, O_RDONLY);
+    int fd_pid_producer = check(open(fifo_named_producer_pid, O_RDONLY));
 
     int sel_val;
     do //wait until pid is ready
@@ -116,21 +141,21 @@ int main(int argc, char *argv[])
         //add the selected file descriptor to the selected fd_set
         FD_SET(fd_pid_producer, &readfds);
 
-        sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+        sel_val = check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout));
 
     } while (sel_val <= 0);
 
-    read(fd_pid_producer, &producer_pid, sizeof(producer_pid));
-    close(fd_pid_producer);
-    unlink(fifo_named_producer_pid);
+    check(read(fd_pid_producer, &producer_pid, sizeof(producer_pid)));
+    check(close(fd_pid_producer));
+    check(unlink(fifo_named_producer_pid));
 
     //open fifo
-    fd_pipe = open(fifo_named_pipe, O_RDONLY);
+    fd_pipe = check(open(fifo_named_pipe, O_RDONLY));
 
     //defining max size for operations and files
-    getrlimit(RLIMIT_NOFILE, &limit);
+    check(getrlimit(RLIMIT_NOFILE, &limit));
     max_write_size = limit.rlim_max;
-    fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size);
+    check(fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size));
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -149,7 +174,7 @@ int main(int argc, char *argv[])
         //increasing stack limit to let the buffer be instantieted correctly
         limit.rlim_cur = (size + 5) * 1000000;
         limit.rlim_max = (size + 5) * 1000000;
-        setrlimit(RLIMIT_STACK, &limit);
+        check(setrlimit(RLIMIT_STACK, &limit));
 
         char buffer[size];
         //receive array from producer
@@ -157,11 +182,11 @@ int main(int argc, char *argv[])
     }
 
     //transfer complete. Sends signal to notify the producer
-    kill(producer_pid, SIGUSR1);
+    check(kill(producer_pid, SIGUSR1));
 
     //close and delete fifo
-    close(fd_pipe);
-    unlink(fifo_named_pipe);
+    check(close(fd_pipe));
+    check(unlink(fifo_named_pipe));
 
     return 0;
 }

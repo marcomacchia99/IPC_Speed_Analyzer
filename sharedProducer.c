@@ -12,6 +12,7 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <semaphore.h>
+#include <errno.h>
 
 #define BLOCK_NUM 100
 
@@ -44,11 +45,26 @@ int mode;
 //circular buffer size
 int circular_size;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno));
+        fflush(logfile);
+        fclose(logfile);
+		exit(-1);
+	}
+	return retval;
+}
+
 void transfer_complete(int sig)
 {
     if (sig == SIGUSR1)
     {
-        gettimeofday(&stop_time, NULL);
+        check(gettimeofday(&stop_time, NULL));
         //calculating time in milliseconds
         transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec) / 1000;
         flag_transfer_complete = 1;
@@ -87,8 +103,8 @@ void send_array(char buffer[])
         }
 
         //coordinate with consumer
-        sem_wait(not_full);
-        sem_wait(mutex);
+        check(sem_wait(not_full));
+        check(sem_wait(mutex));
 
         for (int k = 0; k < strlen(segment); k++)
         {
@@ -98,14 +114,24 @@ void send_array(char buffer[])
         }
 
         //coordinate with producer
-        sem_post(mutex);
-        sem_post(not_empty);
+        check(sem_post(mutex));
+        check(sem_post(not_empty));
     }
 }
 
 int main(int argc, char *argv[])
 {
 
+//open Log file
+    logfile = fopen("SharedMemory.txt","w");
+    if(logfile==NULL){
+	printf("an error occured while creating SharedMemory's log File\n");
+	return 0;
+	} 
+	fprintf(logfile, "******log file created******\n");
+	fflush(logfile);
+	
+	
     //getting size from console
     if (argc < 2)
     {
@@ -138,31 +164,24 @@ int main(int argc, char *argv[])
 
     //sending pid to consumer
     char *fifo_shared_producer_pid = "/tmp/shared_producer_pid";
-    mkfifo(fifo_shared_producer_pid, 0666);
-    int fd_pid = open(fifo_shared_producer_pid, O_WRONLY);
+    check(mkfifo(fifo_shared_producer_pid, 0666));
+    int fd_pid = check(open(fifo_shared_producer_pid, O_WRONLY));
     pid_t pid = getpid();
-    write(fd_pid, &pid, sizeof(pid));
-    close(fd_pid);
-    unlink(fifo_shared_producer_pid);
+    check(write(fd_pid, &pid, sizeof(pid)));
+    check(close(fd_pid));
+    check(unlink(fifo_shared_producer_pid));
 
     //open shared memory
-    if ((shm_fd = shm_open(shm_name, O_CREAT | O_RDWR | O_TRUNC, 0666)) == -1)
-    {
-        perror("Producer - shm_open failure");
-        exit(1);
-    }
+    shm_fd = check(shm_open(shm_name, O_CREAT | O_RDWR | O_TRUNC, 0666));
+
 
     //setting shared memory size
-    if (ftruncate(shm_fd, circular_size) == -1)
-    {
-        perror("Producer - ftruncate failure");
-        exit(1);
-    }
+    check(ftruncate(shm_fd, circular_size)) ;
 
     //map shared memory
     if ((shm_ptr = mmap(0, circular_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
     {
-        perror("Producer - map failed");
+        perror("producer - map failed");
         exit(1);
     }
     //original shared memory pointer, used with munmap
@@ -171,37 +190,25 @@ int main(int argc, char *argv[])
     //initialize circular buffer semaphores
     if ((mutex = sem_open("mutex", O_CREAT, 0644, 1)) == MAP_FAILED)
     {
-        perror("Producer - sem_open failed");
+        perror("producer - sem_open failed");
         exit(1);
     }
     if ((not_full = sem_open("not_full", O_CREAT, 0644, BLOCK_NUM)) == MAP_FAILED)
     {
-        perror("Producer - sem_open failed");
+        perror("producer - sem_open failed");
         exit(1);
     }
     if ((not_empty = sem_open("not_empty", O_CREAT, 0644, 0)) == MAP_FAILED)
     {
-        perror("Producer - sem_open failed");
+        perror("producer - sem_open failed");
         exit(1);
     }
 
-    if (sem_init(mutex, 1, 1) == -1)
-    {
-        perror("Producer - sem_init failed");
-        exit(1);
-    }
+    check(sem_init(mutex, 1, 1);
 
-    if (sem_init(not_full, 1, BLOCK_NUM) == -1)
-    {
-        perror("Producer - sem_init failed");
-        exit(1);
-    }
+    check(sem_init(not_full, 1, BLOCK_NUM));
 
-    if (sem_init(not_empty, 1, 0) == -1)
-    {
-        perror("Producer - sem_init failed");
-        exit(1);
-    }
+   check(sem_init(not_empty, 1, 0));
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -213,7 +220,7 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
@@ -227,7 +234,7 @@ int main(int argc, char *argv[])
         struct rlimit limit;
         limit.rlim_cur = (size + 5) * 1000000;
         limit.rlim_max = (size + 5) * 1000000;
-        setrlimit(RLIMIT_STACK, &limit);
+        check(setrlimit(RLIMIT_STACK, &limit));
 
         char buffer[size];
 
@@ -235,7 +242,7 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
@@ -251,21 +258,16 @@ int main(int argc, char *argv[])
     fflush(stdout);
 
     //close and delete semaphores
-    sem_close(mutex);
-    sem_unlink("mutex");
-    sem_close(not_empty);
-    sem_unlink("not_empty");
-    sem_close(not_full);
-    sem_unlink("not_full");
+    check(sem_close(mutex));
+    check(sem_unlink("mutex"));
+    check(sem_close(not_empty));
+    check(sem_unlink("not_empty"));
+    check(sem_close(not_full));
+    check(sem_unlink("not_full"));
 
     //deallocate and close shared memory
-    if (munmap(original_shm_ptr, circular_size) == -1)
-    {
-        perror("Error unmapping shared memory:");
-        exit(1);
-    }
-
-    close(shm_fd);
+    check(munmap(original_shm_ptr, circular_size));
+    check(close(shm_fd));
 
     return 0;
 }
