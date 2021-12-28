@@ -11,7 +11,10 @@ Each producer starts with a buffer of random data, and each consumer has one of 
 The amount of time spent transferring is tracked and reported.
 At any time during a run, the user can change the array dimension (a maximum value of about 100 MB can be imposed). 
 
-For the management of the fourth process we decided to use semaphores 
+For the management of the fourth process we decided to use three semaphores, precisely mutex, not_empty and not_full that are used to ensure
+that the circular buffer is used correctly, preventing the producer process from writing inside a block that the consumer has not yet read and from 
+the other hand avoiding the consumer from reading something that the producer has not yet printed. 
+
 The shared memory process utilizes a circular buffer with a fixed size that is substantially smaller than the quantity of data to be transferred (from 1 to 10 KB). 
 
 After an interactive user interface, the four programs can be launched separately depending on the choice of the user.
