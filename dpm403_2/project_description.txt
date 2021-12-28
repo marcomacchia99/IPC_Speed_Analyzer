@@ -6,8 +6,13 @@ a producer and a consumer using various models.
 The four programs are built around a set of IPC transfer primitives called: unnamed pipe, named pipe, socket, shared memory with circular buffer.
 Two processes, one for the producer and one for the consumer, have been implemented to manage each type of communication indipendently.
 
-After an interactive user interface, the four programs can be launched separately depending on the choice of the user.
 
-Each producer starts with an array of random data, and each consumer has an array of the same dimension. The individual consumer receives data and fills its array.
+Each producer starts with a buffer of random data, and each consumer has one of the same dimension. The specific consumer receives data and fills its array.
 The amount of time spent transferring is tracked and reported.
 At any time during a run, the user can change the array dimension (a maximum value of about 100 MB can be imposed). 
+
+For the management of the fourth process we decided to use semaphores 
+The shared memory process utilizes a circular buffer with a fixed size that is substantially smaller than the quantity of data to be transferred (from 1 to 10 KB). 
+
+After an interactive user interface, the four programs can be launched separately depending on the choice of the user.
+
