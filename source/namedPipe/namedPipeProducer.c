@@ -33,6 +33,19 @@ int mode;
 //variable use to get and set resource limits
 struct rlimit limit;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno)); 
+		exit(-1);
+	}
+	return retval;
+}
+
 void random_string_generator(char buffer[])
 {
     for (int i = 0; i < size; i++)
@@ -67,7 +80,7 @@ void send_array(char buffer[])
         {
             segment[j] = buffer[i * max_write_size + j];
         }
-        write(fd_pipe, segment, max_write_size);
+        check(write(fd_pipe, segment, max_write_size));
     }
 }
 
@@ -100,18 +113,18 @@ int main(int argc, char *argv[])
     char *fifo_named_producer_pid = "/tmp/named_producer_pid";
 
     //create fifo
-    mkfifo(fifo_named_pipe, 0666);
-    mkfifo(fifo_named_producer_pid, 0666);
+    check(mkfifo(fifo_named_pipe, 0666));
+    check(mkfifo(fifo_named_producer_pid, 0666));
 
     //sending pid to consumer
-    int fd_pid_producer = open(fifo_named_producer_pid, O_WRONLY);
+    int fd_pid_producer = check(open(fifo_named_producer_pid, O_WRONLY));
     pid_t pid = getpid();
-    write(fd_pid_producer, &pid, sizeof(pid));
-    close(fd_pid_producer);
-    unlink(fifo_named_producer_pid);
+    check(write(fd_pid_producer, &pid, sizeof(pid)));
+    check(close(fd_pid_producer));
+    check(unlink(fifo_named_producer_pid));
 
     //open fifo
-    fd_pipe = open(fifo_named_pipe, O_WRONLY);
+    fd_pipe = check(open(fifo_named_pipe, O_WRONLY));
 
     //defining max size for operations and files
     getrlimit(RLIMIT_NOFILE, &limit);
@@ -134,7 +147,7 @@ int main(int argc, char *argv[])
         send_array(buffer);
 
         //delete buffer from memory
-        free(buffer);
+        free(buffer); /******check(*/
     }
     else
     {
@@ -165,8 +178,8 @@ int main(int argc, char *argv[])
     fflush(stdout);
 
     //close and delete fifo
-    close(fd_pipe);
-    unlink(fifo_named_pipe);
+    check(close(fd_pipe));
+    check(unlink(fifo_named_pipe));
 
     return 0;
 }

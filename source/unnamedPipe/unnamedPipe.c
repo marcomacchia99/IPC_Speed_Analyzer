@@ -30,6 +30,19 @@ int size;
 //memory mode
 int mode;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno)); 
+		exit(-1);
+	}
+	return retval;
+}
+
 void random_string_generator(char buffer_producer[])
 {
     for (int i = 0; i < size; i++)
@@ -43,7 +56,7 @@ void transfer_complete(int sig)
 {
     if (sig == SIGUSR1)
     {
-        gettimeofday(&stop_time, NULL);
+        gettimeofday(&stop_time, NULL); //********************
         //calculating time in milliseconds
         transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec) / 1000;
         flag_transfer_complete = 1;
@@ -64,7 +77,7 @@ void send_array(char buffer_producer[])
             segment[j] = buffer_producer[i * max_write_size + j];
         }
 
-        write(fd_pipe[1], segment, max_write_size);
+        check(write(fd_pipe[1], segment, max_write_size));
     }
 }
 
@@ -89,11 +102,11 @@ void receive_array(char buffer_consumer[])
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_pipe[0], &readfds);
 
-        } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
+        } while (check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout)) < 0); //******* con select ci andrebbe ma non sono sicuro di come funzi con while dato che controlliamo <0 -> da guardare
 
         //read string from producer
         char segment[max_write_size];
-        read(fd_pipe[0], segment, max_write_size);
+        check(read(fd_pipe[0], segment, max_write_size));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
@@ -108,7 +121,7 @@ void receive_array(char buffer_consumer[])
         else
         {
 
-            strcat(buffer_consumer, segment);
+            check(strcat(buffer_consumer, segment));
         }
     }
 }
@@ -135,12 +148,16 @@ int main(int argc, char *argv[])
     srand(time(NULL));
 
     //generating pipe
-    if (pipe(fd_pipe) < 0)
+    check(pipe(fd_pipe));
+    /*if (pipe(fd_pipe) < 0)
     {
         perror("Error while creating unnamed pipe: ");
-    }
-    else
-    {
+    }*/
+    
+    //else
+    //{
+    
+    
         //defining max size for operations and files
         struct rlimit limit;
         getrlimit(RLIMIT_NOFILE, &limit);
@@ -153,7 +170,7 @@ int main(int argc, char *argv[])
 
             pid_t pid_producer;
 
-            close(fd_pipe[1]);
+            check(close(fd_pipe[1]));
 
             //variables for select function
             struct timeval timeout;
@@ -170,11 +187,11 @@ int main(int argc, char *argv[])
                 //add the selected file descriptor to the selected fd_set
                 FD_SET(fd_pipe[0], &readfds);
 
-                sel_val = select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout);
+                sel_val = check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout));
 
             } while (sel_val <= 0);
 
-            read(fd_pipe[0], &pid_producer, sizeof(pid_t));
+            check(read(fd_pipe[0], &pid_producer, sizeof(pid_t)));
 
             //switch between dynamic allocation or standard allocation
             if (mode == 0)
@@ -186,7 +203,7 @@ int main(int argc, char *argv[])
                 receive_array(buffer_consumer);
 
                 //delete buffer from memory
-                free(buffer_consumer);
+                free(buffer_consumer); //**** in teoria check andrebbe ma non so che valori ritorna free
             }
             else
             {
@@ -202,20 +219,20 @@ int main(int argc, char *argv[])
             }
 
             //transfer complete. Sends signal to notify the producer
-            kill(pid_producer, SIGUSR1);
-            close(fd_pipe[0]);
+            check(kill(pid_producer, SIGUSR1));
+            check(close(fd_pipe[0]));
         }
         else
         { //producer
 
-            close(fd_pipe[0]);
+            check(close(fd_pipe[0]));
 
             //the process must handle SIGUSR1 signal
             signal(SIGUSR1, transfer_complete);
 
             //sending pid to consumer
             pid_t pid_producer = getpid();
-            write(fd_pipe[1], &pid_producer, sizeof(pid_t));
+            check(write(fd_pipe[1], &pid_producer, sizeof(pid_t)));
 
             //switch between dynamic allocation or standard allocation
             if (mode == 0)
@@ -233,7 +250,7 @@ int main(int argc, char *argv[])
                 send_array(buffer_producer);
 
                 //delete buffer from memory
-                free(buffer_producer);
+                free(buffer_producer);  // STESSO DISCORSO SOPRA
             }
             else
             {
@@ -249,7 +266,7 @@ int main(int argc, char *argv[])
                 random_string_generator(buffer_producer);
 
                 //get time of when the transfer has started
-                gettimeofday(&start_time, NULL);
+                gettimeofday(&start_time, NULL); //************
 
                 //writing buffer on pipe
                 send_array(buffer_producer);
@@ -265,9 +282,9 @@ int main(int argc, char *argv[])
             fflush(stdout);
 
             //close and delete fifo
-            close(fd_pipe[1]);
+            check(close(fd_pipe[1]));
         }
-    }
+    //}
 
     return 0;
 }
