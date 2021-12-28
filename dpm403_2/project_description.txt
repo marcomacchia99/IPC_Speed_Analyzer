@@ -1,54 +1,13 @@
-The project, which constitutes the first assignment of ARP for Robotics students, consists in designing and developing an interactive simulator of an hoist with 2 d.o.f. in which two different consoles allow the user to activate the hoist.
-
-Thanks to two different motors, motX and motZ, a box can move along the just mentioned axis respectively on x and z direction.
-
-The movement is bound from 0 to a maximum value of distance, which is set to 1, for each motor. 
-The hoist is able to shift on both x and z axis at the same time.
-
-In the project there are 6 processes: motorX, motorZ, commandConsole, inspectionConsole, watchdog and starter.
-There are detailed descriptions of each process below in the folder of the nominated process.
-
-From the user side the commandConsole and the inspectionConsole acts as an interface to respectively manage the movement and other
-commands and to view the current position on the axis and to stop or reset the hoist position.
-
-The development has been made on Linux platform and it was monitored by using the terminal to view process shells.
-
-The communication between the processes was managed through the use of pipes, that allow to write or read from a process to another one
-through a one to one connection.
-
-For the stop from the inspectionConsole it was necessary to introduce signals to manage the problem through interrupts.
-
-The signals were also used for the implementation of the emergency stop, managed by interrupt.
+The project, which is the second of ARP's Robotics students' assignments, consists in designing and developing a set of 
+four concurrent programs whose goal is to evaluate the efficiency and measure the performance in terms of speed of data transit between
+a producer and a consumer using various models.
 
 
-------------------------------------------------
+The four programs are built around a set of IPC transfer primitives called: unnamed pipe, named pipe, socket, shared memory with circular buffer.
+Two processes, one for the producer and one for the consumer, have been implemented to manage each type of communication indipendently.
 
-messages with prof. Zaccaria:
+After an interactive user interface, the four programs can be launched separately depending on the choice of the user.
 
----- mp96: ----
-
-Buongiorno prof. Zaccaria,
-sono Marco Macchia, studente di ARP. 
-
-Insieme al mio collega Samuele Pedrazzi (gruppo mp96) avremmo una domanda da porle:
-
-Da specifiche, gestiamo i comandi in input nella inspection console R (reset) ed S (emergency stop) tramite rispettivamente pipe e signal.
-
-Quando nella inspection console premiamo molto rapidamente in sequenza il tasto R seguito dal tasto S, viene prima scritto nella pipe il comando R e successivamente generato un segnale SIGUSR1 che triggera l'apposita funzione handler nei motori.
-
-Visto che i segnali vengono gestiti immediatamente, una volta effettuato lo stop di emergenza (nel quale, tra le altre cose, "resettiamo" tutti i comandi ricevuti dalle console) il programma riprende la normale esecuzione e legge nel buffer della pipe con l'inspection console il comando R (che in teoria è arrivato prima della generazione del segnale) ed esegue il reset. Questo avviene perché la pipe viene letta ogni x millisecondi, che comunque è un periodo di tempo maggiore della gestione dei segnali.
-
-Questo caso, ovviamente, non si verifica se i tasti sono premuti ad almeno x millisecondi di distanza.
-
-C'è un modo per "pulire" la pipe e quindi evitare che vengano letti dei comandi inviati appena prima dello stop di emergenza? Oppure è un edge case che possiamo trascurare?
-
-La ringraziamo molto per la sua disponibilità.
-Cordiali saluti
-Marco Macchia
-Samuele Pedrazzi
-
-
----- response from prof. Zaccaria ----
-
-Interessante. Per pulire la pipe l'unico modo è fare una funzione di lettura che la svuota (un loop di letture con dati a perdere con una select che evita di bloccare la funzione). Altri modi sono più complessi e meno affidabili, tipo chiudere e riaprire. Se avete tempo... di puntare alla perfezione  fatela, annotandola nel testo di descrizione, se no scrivete nel testo quanto mi ha detto (compresa la mia risposta..) e va benissimo.
-rz
+Each producer starts with an array of random data, and each consumer has an array of the same dimension. The individual consumer receives data and fills its array.
+The amount of time spent transferring is tracked and reported.
+At any time during a run, the user can change the array dimension (a maximum value of about 100 MB can be imposed). 
