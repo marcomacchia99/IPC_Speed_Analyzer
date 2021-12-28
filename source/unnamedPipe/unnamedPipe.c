@@ -255,7 +255,7 @@ int main(int argc, char *argv[])
                 send_array(buffer_producer);
 
                 //delete buffer from memory
-                free(buffer_producer);  // STESSO DISCORSO SOPRA
+                free(buffer_producer);  
             }
             else
             {

@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -31,6 +31,7 @@ struct rlimit limit;
 
 struct timeval timeout;
 fd_set readfds;
+
 
 void receive_array(char buffer[])
 {

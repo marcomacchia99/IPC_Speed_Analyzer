@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -39,6 +39,22 @@ int size;
 
 //memory mode
 int mode;
+
+
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno));
+        fflush(logfile);
+        fclose(logfile);
+		exit(-1);
+	}
+	return retval;
+}
 
 void random_string_generator(char buffer[])
 {
