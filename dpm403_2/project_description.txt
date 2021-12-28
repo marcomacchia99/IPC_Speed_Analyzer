@@ -17,6 +17,9 @@ the other hand avoiding the consumer from reading something that the producer ha
 
 The shared memory process utilizes a circular buffer with a fixed size that is substantially smaller than the quantity of data to be transferred (from 1 to 10 KB). 
 
+For each process the possibility has been added to dynamically allocate the memory through the malloc or to fill the stack manually by maximizing the size.
+The type of memory allocation can be changed by the user via the interface. 
+
 Thanks to the interactive user interface, the four programs can be launched separately depending on the choice of the user.
 
 In order to make clearer the code simple functions have been implemented to show the instructions to the user and to take the desired size 
