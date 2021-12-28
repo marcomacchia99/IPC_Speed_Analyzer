@@ -15,6 +15,8 @@ SIZE=1000
 CHOICE=-1
 #memory mode
 MODE=0
+#port no for socket
+PORTNO=5555
 
 #alternative echo colours
 RED='\033[1;31m'
@@ -78,9 +80,9 @@ display_instructions(){
     if [[ "$MODE" -eq 0 ]]
     then
         echo -e "NOTE: every program will allocate the buffers using ${BLUE}dynamic memory${NC}."
-        echo -e "Press ${BLUE}6${NC} to switch to ${BLUE}standard method${NC} (increasing stack size)."
+        echo -e "Press ${BLUE}6${NC} to switch to ${BLUE}standard array method${NC} (increasing stack size)."
     else
-        echo -e "NOTE: every program will allocate the buffers using ${BLUE}standard method${NC}"
+        echo -e "NOTE: every program will allocate the buffers using ${BLUE}standard array method${NC}"
         echo "(increasing stack size)."
         echo -e "Press ${BLUE}6${NC} to switch to ${BLUE}dynamic memory${NC}."
     fi 
@@ -121,7 +123,7 @@ case $CHOICE in
     ;;
 
     3)
-    ./socketProducer ${SIZE} ${MODE} 5555 & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 5555
+    ./socketProducer ${SIZE} ${MODE} ${PORTNO} & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 ${PORTNO}
     #introduce very small delay to guarantee correct user interfacing
     sleep 0.00001
     #fixed value that asks the user for another input

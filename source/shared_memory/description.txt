@@ -1,0 +1,9 @@
+The Shared memory model uses a circular buffer stored in a shared memory segment to send the content of the A buffer,
+generated inside the producer process, to the consumer process, which then fills the B buffer.
+The circular buffer size can be interactively selected by the user, from a range of 1KB to 10KB.
+The circulare buffer is then divided into a fixed amount of blocks, setted at 100.
+Three semaphores are used to guarantee the correct use of the circular buffer, so that the producer process can not print
+inside a block that the consumer process has not already read and the consumer can not read a block that the producer has
+not already written.
+Once the consumer has received all the data, it sends a SIGUSR1 signal to the producer (using its pid received via pipe),
+to notify that the transfer is complete and to proceed with che time measurement.
