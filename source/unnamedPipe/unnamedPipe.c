@@ -37,7 +37,9 @@ int check(int retval)
 {
 	if(retval == -1)
 	{
-		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno)); 
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno));
+        fflush(logfile);
+        fclose(logfile);
 		exit(-1);
 	}
 	return retval;
@@ -128,6 +130,9 @@ void receive_array(char buffer_consumer[])
 
 int main(int argc, char *argv[])
 {
+
+    logfile = fopen("../logs/unnamed_pipe.txt","w");
+
     //getting size from console
     if (argc < 2)
     {
