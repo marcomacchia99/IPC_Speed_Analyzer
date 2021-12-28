@@ -40,6 +40,19 @@ int size;
 //memory mode
 int mode;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno)); 
+		exit(-1);
+	}
+	return retval;
+}
+
 void receive_array(char buffer[])
 {
     //number of cycles needed to send all the data
@@ -63,7 +76,7 @@ void receive_array(char buffer[])
 
         //read string from producer
         char segment[MAX_WRITE_SIZE];
-        read(fd_socket, segment, MAX_WRITE_SIZE);
+        check(read(fd_socket, segment, MAX_WRITE_SIZE));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
@@ -78,7 +91,7 @@ void receive_array(char buffer[])
         }
         else
         {
-            strcat(buffer, segment);
+            check(strcat(buffer, segment));
         }
     }
 }
@@ -110,7 +123,7 @@ int main(int argc, char *argv[])
     portno = atoi(argv[4]);
 
     //create socket
-    fd_socket = socket(AF_INET, SOCK_STREAM, 0);
+    fd_socket = check(socket(AF_INET, SOCK_STREAM, 0));
     if (fd_socket < 0)
     {
         perror("Consumer - ERROR opening socket");
@@ -134,7 +147,7 @@ int main(int argc, char *argv[])
     server_addr.sin_port = htons(portno);
 
     //open new connection
-    if (connect(fd_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    if (check(connect(fd_socket, (struct sockaddr *)&server_addr, sizeof(server_addr))) < 0)
     {
         perror("Consumer - ERROR connecting to server");
         exit(0);
@@ -155,7 +168,7 @@ int main(int argc, char *argv[])
 
     } while (sel_val <= 0);
 
-    read(fd_socket, &producer_pid, sizeof(producer_pid));
+    check(read(fd_socket, &producer_pid, sizeof(producer_pid)));
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -175,7 +188,7 @@ int main(int argc, char *argv[])
         struct rlimit limit;
         limit.rlim_cur = (size + 5) * 1000000;
         limit.rlim_max = (size + 5) * 1000000;
-        setrlimit(RLIMIT_STACK, &limit);
+        check(setrlimit(RLIMIT_STACK, &limit));
 
         char buffer[size];
         //receive array from producer
@@ -183,10 +196,10 @@ int main(int argc, char *argv[])
     }
 
     //transfer complete. Sends signal to notify the producer
-    kill(producer_pid, SIGUSR1);
+    check(kill(producer_pid, SIGUSR1));
 
     //close socket
-    close(fd_socket);
+    check(close(fd_socket));
 
     return 0;
 }

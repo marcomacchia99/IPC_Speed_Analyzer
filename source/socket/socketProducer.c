@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
     bzero((char *)&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = check(htons(portno));
+    server_addr.sin_port = htons(portno);
 
     //bind socket
     if (check(bind(fd_socket, (struct sockaddr *)&server_addr,
