@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -40,6 +40,21 @@ int size;
 //memory mode
 int mode;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+	if(retval == -1)
+	{
+		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno));
+        fflush(logfile);
+        fclose(logfile);
+		exit(-1);
+	}
+	return retval;
+}
+
 void random_string_generator(char buffer[])
 {
     for (int i = 0; i < size; i++)
@@ -53,7 +68,7 @@ void transfer_complete(int sig)
 {
     if (sig == SIGUSR1)
     {
-        gettimeofday(&stop_time, NULL);
+        check(gettimeofday(&stop_time, NULL));
         //calculating time in milliseconds
         transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec) / 1000;
         flag_transfer_complete = 1;
@@ -74,12 +89,14 @@ void send_array(char buffer[])
             segment[j] = buffer[i * MAX_WRITE_SIZE + j];
         }
 
-        write(fd_socket_new, segment, MAX_WRITE_SIZE);
+        check(write(fd_socket_new, segment, MAX_WRITE_SIZE));
     }
 }
 
 int main(int argc, char *argv[])
 {
+    //open log file in write mode
+    logfile = fopen("../logs/socket.txt","w");
 
     //getting size from console
     if (argc < 2)
@@ -126,8 +143,8 @@ int main(int argc, char *argv[])
     server_addr.sin_port = htons(portno);
 
     //bind socket
-    if (bind(fd_socket, (struct sockaddr *)&server_addr,
-             sizeof(server_addr)) < 0)
+    if (check(bind(fd_socket, (struct sockaddr *)&server_addr,
+             sizeof(server_addr))) < 0)
     {
 
         perror("Producer - ERROR on binding");
@@ -135,11 +152,11 @@ int main(int argc, char *argv[])
     }
 
     //wait for connections
-    listen(fd_socket, 5);
+    check(listen(fd_socket, 5));
 
     //enstablish connection
     int client_length = sizeof(client_addr);
-    fd_socket_new = accept(fd_socket, (struct sockaddr *)&client_addr, &client_length);
+    fd_socket_new = check(accept(fd_socket, (struct sockaddr *)&client_addr, &client_length));
     if (fd_socket_new < 0)
     {
         perror("Producer - ERROR accepting connection");
@@ -148,7 +165,7 @@ int main(int argc, char *argv[])
 
     //sending pid to consumer
     pid_t pid = getpid();
-    write(fd_socket_new, &pid, sizeof(pid));
+    check(write(fd_socket_new, &pid, sizeof(pid)));
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -160,7 +177,7 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
@@ -174,7 +191,7 @@ int main(int argc, char *argv[])
         struct rlimit limit;
         limit.rlim_cur = (size + 5) * 1000000;
         limit.rlim_max = (size + 5) * 1000000;
-        setrlimit(RLIMIT_STACK, &limit);
+        check(setrlimit(RLIMIT_STACK, &limit));
 
         char buffer[size];
 
@@ -182,7 +199,7 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
@@ -198,8 +215,8 @@ int main(int argc, char *argv[])
     fflush(stdout);
 
     //close socket
-    close(fd_socket);
-    close(fd_socket_new);
+    check(close(fd_socket));
+    check(close(fd_socket_new));
 
     return 0;
 }
