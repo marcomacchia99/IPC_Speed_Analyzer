@@ -98,6 +98,9 @@ void receive_array(char buffer[])
 
 int main(int argc, char *argv[])
 {
+    //open log file in read mode
+    logfile = fopen("../logs/socket.txt","r");
+
     //getting size from console
     if (argc < 3)
     {
