@@ -11,6 +11,8 @@ gcc sharedConsumer.c -o sharedConsumer -lrt -pthread
 
 #buffer size
 SIZE=1000
+#buffer size
+CIRCULAR_SIZE=1000
 #user input choice
 CHOICE=-1
 #memory mode
@@ -49,7 +51,7 @@ get_circular_dimension(){
     echo
 
     #while CIRCULAR_SIZE < 1 or CIRCULAR_SIZE > 10 or CIRCULAR_SIZE is null or CIRCULAR_SIZE is not a number
-    while [ "$CIRCULAR_SIZE" -gt 10 ] || [ "$CIRCULAR_SIZE" -lt 1 ] || [ -z "$CIRCULAR_SIZE" ] || [[ ! "$CIRCULAR_SIZE" =~ ^[0-9]+$ ]] ;do 
+    while [ -z "$CIRCULAR_SIZE" ] || [ "$CIRCULAR_SIZE" -gt 10 ] || [ "$CIRCULAR_SIZE" -lt 1 ] || [[ ! "$CIRCULAR_SIZE" =~ ^[0-9]+$ ]] ;do 
     echo
     read -p "        Enter the circular buffer size in KB  (min 1KB - max 10KB): " CIRCULAR_SIZE
     echo
@@ -107,34 +109,42 @@ case $CHOICE in
     ;;
 
     1)
+    rm named_pipe_log-old.txt -f
+    mv named_pipe_log.txt named_pipe_log-old.txt -f 2>/dev/null
     ./namedPipeProducer ${SIZE} ${MODE} & ./namedPipeConsumer ${SIZE} ${MODE}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.0001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;
 
     2)
+    rm unnamed_pipe_log-old.txt -f
+    mv unnamed_pipe_log.txt unnamed_pipe_log-old.txt -f 2>/dev/null
     ./unnamedPipe ${SIZE} ${MODE}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.0001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;
 
     3)
+    rm socket_log-old.txt -f
+    mv socket_log.txt socket_log-old.txt -f 2>/dev/null
     ./socketProducer ${SIZE} ${MODE} ${PORTNO} & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 ${PORTNO}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.0001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;
 
     4)
+    rm shared_memory_log-old.txt -f
+    mv shared_memory_log.txt shared_memory_log-old.txt -f 2>/dev/null
     get_circular_dimension
     ./sharedProducer ${SIZE} ${MODE} ${CIRCULAR_SIZE} & ./sharedConsumer ${SIZE} ${MODE} ${CIRCULAR_SIZE}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.0001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;

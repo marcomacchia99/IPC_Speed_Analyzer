@@ -32,19 +32,22 @@ struct rlimit limit;
 struct timeval timeout;
 fd_set readfds;
 
+//pointer to log file
 FILE *logfile;
 
 //This function checks if something failed, exits the program and prints an error in the logfile
 int check(int retval)
 {
-	if(retval == -1)
-	{
-		fprintf(logfile,"\nERROR (" __FILE__ ":%d) -- %s\n",__LINE__,strerror(errno)); 
-		fflush(logfile);
-        	fclose(logfile);
-		exit(-1);
-	}
-	return retval;
+    if (retval == -1)
+    {
+        fprintf(logfile, "\nConsumer - ERROR (" __FILE__ ":%d) -- %s\n", __LINE__, strerror(errno));
+        fflush(logfile);
+        fclose(logfile);
+        printf("\tAn error has been reported on log file.\n");
+        fflush(stdout);
+        exit(-1);
+    }
+    return retval;
 }
 
 void receive_array(char buffer[])
@@ -56,6 +59,11 @@ void receive_array(char buffer[])
     //number of cycles needed to receive all the data
     int cycles = size / max_write_size + (size % max_write_size != 0 ? 1 : 0);
 
+    //write on log file
+    fprintf(logfile, "c - starting receiving array...\n");
+    fprintf(logfile, "c - there will be %d cycles\n", cycles);
+    fflush(logfile);
+
     for (int i = 0; i < cycles; i++)
     {
         //wait until data is ready
@@ -64,7 +72,7 @@ void receive_array(char buffer[])
             //set timeout for select
             timeout.tv_sec = 0;
             timeout.tv_usec = 1000;
-            
+
             FD_ZERO(&readfds);
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_pipe, &readfds);
@@ -90,20 +98,21 @@ void receive_array(char buffer[])
             strcat(buffer, segment);
         }
     }
+    //write on log file
+    fprintf(logfile, "c - array received!\n");
+    fflush(logfile);
 }
 
 int main(int argc, char *argv[])
 {
+    //open Log file
+    logfile = fopen("named_pipe_log.txt", "a");
+    if (logfile == NULL)
+    {
+        printf("an error occured while creating Named_pipe's log File\n");
+        return 0;
+    }
 
-   //open Log file
-    logfile = fopen("Named_pipe.txt","w");
-    if(logfile==NULL){
-	printf("an error occured while creating Named_pipe's 	log File\n");
-	return 0;
-	} 
-	//fprintf(logfile, "******log file created******\n");
-	//fflush(logfile);
-	
     //getting size from console
     if (argc < 2)
     {
@@ -111,6 +120,9 @@ int main(int argc, char *argv[])
         exit(0);
     }
     size = atoi(argv[1]) * 1000000;
+    //write on log file
+    fprintf(logfile, "c - received size of %dMB\n", size);
+    fflush(logfile);
 
     //getting mode from console
     if (argc < 3)
@@ -119,14 +131,21 @@ int main(int argc, char *argv[])
         exit(0);
     }
     mode = atoi(argv[2]);
+    //write on log file
+    fprintf(logfile, "c - received mode %d\n", mode);
+    fflush(logfile);
 
     //defining fifo path
     char *fifo_named_pipe = "/tmp/named_pipe";
     char *fifo_named_producer_pid = "/tmp/named_producer_pid";
 
     //create fifo
-    check(mkfifo(fifo_named_pipe, 0666));
-    check(mkfifo(fifo_named_producer_pid, 0666));
+    mkfifo(fifo_named_pipe, 0666);
+    mkfifo(fifo_named_producer_pid, 0666);
+
+    //write on log file
+    fprintf(logfile, "c - open pipe for pid\n");
+    fflush(logfile);
 
     //receiving pid from producer
     int fd_pid_producer = check(open(fifo_named_producer_pid, O_RDONLY));
@@ -147,7 +166,11 @@ int main(int argc, char *argv[])
 
     check(read(fd_pid_producer, &producer_pid, sizeof(producer_pid)));
     check(close(fd_pid_producer));
-    check(unlink(fifo_named_producer_pid));
+    unlink(fifo_named_producer_pid);
+
+    //write on log file
+    fprintf(logfile, "c - pid %d readed and open pipe for communication\n", producer_pid);
+    fflush(logfile);
 
     //open fifo
     fd_pipe = check(open(fifo_named_pipe, O_RDONLY));
@@ -156,6 +179,10 @@ int main(int argc, char *argv[])
     check(getrlimit(RLIMIT_NOFILE, &limit));
     max_write_size = limit.rlim_max;
     check(fcntl(fd_pipe, F_SETPIPE_SZ, max_write_size));
+
+    //write on log file
+    fprintf(logfile, "c - limit extended\n");
+    fflush(logfile);
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -186,7 +213,14 @@ int main(int argc, char *argv[])
 
     //close and delete fifo
     check(close(fd_pipe));
-    check(unlink(fifo_named_pipe));
+    unlink(fifo_named_pipe);
+
+    //write on log file
+    fprintf(logfile, "c - pipe closed\n");
+    fflush(logfile);
+
+    //close log file
+    fclose(logfile);
 
     return 0;
 }

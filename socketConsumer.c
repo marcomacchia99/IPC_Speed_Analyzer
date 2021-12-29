@@ -25,7 +25,6 @@ struct sockaddr_in server_addr;
 //socket server
 struct hostent *server;
 
-
 //pid of producer process used to send signals
 pid_t producer_pid;
 
@@ -40,10 +39,33 @@ int size;
 //memory mode
 int mode;
 
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+    if (retval == -1)
+    {
+        fprintf(logfile, "\nConsumer - ERROR (" __FILE__ ":%d) -- %s\n", __LINE__, strerror(errno));
+        fflush(logfile);
+        fclose(logfile);
+        printf("\tAn error has been reported on log file.\n");
+        fflush(stdout);
+        exit(-1);
+    }
+    return retval;
+}
+
 void receive_array(char buffer[])
 {
+
     //number of cycles needed to send all the data
     int cycles = size / MAX_WRITE_SIZE + (size % MAX_WRITE_SIZE != 0 ? 1 : 0);
+
+    //write on log file
+    fprintf(logfile, "c - starting receiving array...\n");
+    fprintf(logfile, "c - there will be %d cycles\n", cycles);
+    fflush(logfile);
 
     for (int i = 0; i < cycles; i++)
     {
@@ -63,7 +85,7 @@ void receive_array(char buffer[])
 
         //read string from producer
         char segment[MAX_WRITE_SIZE];
-        read(fd_socket, segment, MAX_WRITE_SIZE);
+        check(read(fd_socket, segment, MAX_WRITE_SIZE));
 
         //add every segment to entire buffer
         if (i == cycles - 1)
@@ -81,10 +103,21 @@ void receive_array(char buffer[])
             strcat(buffer, segment);
         }
     }
+    //write on log file
+    fprintf(logfile, "c - array received!\n");
+    fflush(logfile);
 }
 
 int main(int argc, char *argv[])
 {
+    //open log file in read mode
+    logfile = fopen("socket_log.txt", "a");
+    if (logfile == NULL)
+    {
+        printf("an error occured while creating sockets's log File\n");
+        return 0;
+    }
+
     //getting size from console
     if (argc < 3)
     {
@@ -92,6 +125,9 @@ int main(int argc, char *argv[])
         exit(0);
     }
     size = atoi(argv[1]) * 1000000;
+    //write on log file
+    fprintf(logfile, "c - received size of %dMB\n", size);
+    fflush(logfile);
 
     //getting mode from console
     if (argc < 4)
@@ -100,6 +136,9 @@ int main(int argc, char *argv[])
         exit(0);
     }
     mode = atoi(argv[2]);
+    //write on log file
+    fprintf(logfile, "c - received mode %d\n", mode);
+    fflush(logfile);
 
     //getting port number
     if (argc < 5)
@@ -108,22 +147,31 @@ int main(int argc, char *argv[])
         exit(0);
     }
     portno = atoi(argv[4]);
+    //write on log file
+    fprintf(logfile, "c - received portno %d\n", portno);
+    fflush(logfile);
 
     //create socket
-    fd_socket = socket(AF_INET, SOCK_STREAM, 0);
+    fd_socket = check(socket(AF_INET, SOCK_STREAM, 0));
     if (fd_socket < 0)
     {
-        perror("Consumer - ERROR opening socket");
-        exit(0);
+        check(-1);
     }
+
+    //write on log file
+    fprintf(logfile, "c - socket created\n");
+    fflush(logfile);
 
     //get host
     server = gethostbyname(argv[3]);
     if (server == NULL)
     {
-        fprintf(stderr, "Consumer - ERROR, no such host\n");
-        exit(0);
+        check(-1);
     }
+
+    //write on log file
+    fprintf(logfile, "c - correct server\n");
+    fflush(logfile);
 
     //set server address for connection
     bzero((char *)&server_addr, sizeof(server_addr));
@@ -134,11 +182,14 @@ int main(int argc, char *argv[])
     server_addr.sin_port = htons(portno);
 
     //open new connection
-    if (connect(fd_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    if (check(connect(fd_socket, (struct sockaddr *)&server_addr, sizeof(server_addr))) < 0)
     {
-        perror("Consumer - ERROR connecting to server");
-        exit(0);
+        check(-1);
     }
+
+    //write on log file
+    fprintf(logfile, "c - connected to socket\n");
+    fflush(logfile);
 
     //receiving pid from producer
     int sel_val;
@@ -155,7 +206,11 @@ int main(int argc, char *argv[])
 
     } while (sel_val <= 0);
 
-    read(fd_socket, &producer_pid, sizeof(producer_pid));
+    check(read(fd_socket, &producer_pid, sizeof(producer_pid)));
+
+    //write on log file
+    fprintf(logfile, "c - pid %d readed\n", producer_pid);
+    fflush(logfile);
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -175,7 +230,7 @@ int main(int argc, char *argv[])
         struct rlimit limit;
         limit.rlim_cur = (size + 5) * 1000000;
         limit.rlim_max = (size + 5) * 1000000;
-        setrlimit(RLIMIT_STACK, &limit);
+        check(setrlimit(RLIMIT_STACK, &limit));
 
         char buffer[size];
         //receive array from producer
@@ -183,10 +238,17 @@ int main(int argc, char *argv[])
     }
 
     //transfer complete. Sends signal to notify the producer
-    kill(producer_pid, SIGUSR1);
+    check(kill(producer_pid, SIGUSR1));
 
     //close socket
-    close(fd_socket);
+    check(close(fd_socket));
+
+    //write on log file
+    fprintf(logfile, "c - socket closed\n");
+    fflush(logfile);
+
+    //close log file
+    fclose(logfile);
 
     return 0;
 }

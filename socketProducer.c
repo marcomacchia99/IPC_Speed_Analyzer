@@ -31,7 +31,7 @@ struct sockaddr_in server_addr, client_addr;
 struct timeval start_time, stop_time;
 //flag if the consumer received all the data
 int flag_transfer_complete = 0;
-//amount of transfer milliseconds 
+//amount of transfer milliseconds
 int transfer_time;
 
 //buffer size
@@ -40,6 +40,24 @@ int size;
 //memory mode
 int mode;
 
+//pointer to log file
+FILE *logfile;
+
+//This function checks if something failed, exits the program and prints an error in the logfile
+int check(int retval)
+{
+    if (retval == -1)
+    {
+        fprintf(logfile, "\nProducer - ERROR (" __FILE__ ":%d) -- %s\n", __LINE__, strerror(errno));
+        fflush(logfile);
+        fclose(logfile);
+        printf("\tAn error has been reported on log file.\n");
+        fflush(stdout);
+        exit(-1);
+    }
+    return retval;
+}
+
 void random_string_generator(char buffer[])
 {
     for (int i = 0; i < size; i++)
@@ -47,13 +65,20 @@ void random_string_generator(char buffer[])
         int char_index = 32 + rand() % 94;
         buffer[i] = char_index;
     }
+    //write on log file
+    fprintf(logfile, "p - random string generated\n");
+    fflush(logfile);
 }
 
 void transfer_complete(int sig)
 {
     if (sig == SIGUSR1)
     {
-        gettimeofday(&stop_time, NULL);
+        //write on log file
+        fprintf(logfile, "p - received signal!\n");
+        fflush(logfile);
+
+        check(gettimeofday(&stop_time, NULL));
         //calculating time in milliseconds
         transfer_time = 1000 * (stop_time.tv_sec - start_time.tv_sec) + (stop_time.tv_usec - start_time.tv_usec) / 1000;
         flag_transfer_complete = 1;
@@ -65,6 +90,11 @@ void send_array(char buffer[])
     //number of cycles needed to send all the data
     int cycles = size / MAX_WRITE_SIZE + (size % MAX_WRITE_SIZE != 0 ? 1 : 0);
 
+    //write on log file
+    fprintf(logfile, "p - starting sending array...\n");
+    fprintf(logfile, "p - there will be %d cycles\n", cycles);
+    fflush(logfile);
+
     //sending data to consumer divided into blocks of dimension max_write_size
     for (int i = 0; i < cycles; i++)
     {
@@ -74,12 +104,24 @@ void send_array(char buffer[])
             segment[j] = buffer[i * MAX_WRITE_SIZE + j];
         }
 
-        write(fd_socket_new, segment, MAX_WRITE_SIZE);
+        check(write(fd_socket_new, segment, MAX_WRITE_SIZE));
     }
+    //write on log file
+    fprintf(logfile, "p - array sent!\n");
+    fflush(logfile);
 }
 
 int main(int argc, char *argv[])
 {
+    //open log file in write mode
+    logfile = fopen("socket_log.txt", "a");
+    if (logfile == NULL)
+    {
+        printf("an error occured while creating sockets's log File\n");
+        return 0;
+    }
+    fprintf(logfile, "******log file created******\n");
+    fflush(logfile);
 
     //getting size from console
     if (argc < 2)
@@ -115,9 +157,12 @@ int main(int argc, char *argv[])
     fd_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_socket < 0)
     {
-        perror("Producer - ERROR opening socket");
-        exit(0);
+        check(-1);
     }
+
+    //write on log file
+    fprintf(logfile, "p - socket created\n");
+    fflush(logfile);
 
     //set server address for connection
     bzero((char *)&server_addr, sizeof(server_addr));
@@ -126,29 +171,39 @@ int main(int argc, char *argv[])
     server_addr.sin_port = htons(portno);
 
     //bind socket
-    if (bind(fd_socket, (struct sockaddr *)&server_addr,
-             sizeof(server_addr)) < 0)
+    if (check(bind(fd_socket, (struct sockaddr *)&server_addr,
+                   sizeof(server_addr))) < 0)
     {
 
-        perror("Producer - ERROR on binding");
-        exit(0);
+        check(-1);
     }
 
+    //write on log file
+    fprintf(logfile, "p - socket bound\n");
+    fflush(logfile);
+
     //wait for connections
-    listen(fd_socket, 5);
+    check(listen(fd_socket, 5));
 
     //enstablish connection
     int client_length = sizeof(client_addr);
-    fd_socket_new = accept(fd_socket, (struct sockaddr *)&client_addr, &client_length);
+    fd_socket_new = check(accept(fd_socket, (struct sockaddr *)&client_addr, &client_length));
     if (fd_socket_new < 0)
     {
-        perror("Producer - ERROR accepting connection");
-        exit(0);
+        check(-1);
     }
+
+    //write on log file
+    fprintf(logfile, "c - connection accepted\n");
+    fflush(logfile);
 
     //sending pid to consumer
     pid_t pid = getpid();
-    write(fd_socket_new, &pid, sizeof(pid));
+    check(write(fd_socket_new, &pid, sizeof(pid)));
+
+    //write on log file
+    fprintf(logfile, "p - pid %d sent\n", pid);
+    fflush(logfile);
 
     //switch between dynamic allocation or standard allocation
     if (mode == 0)
@@ -160,7 +215,7 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
@@ -174,7 +229,7 @@ int main(int argc, char *argv[])
         struct rlimit limit;
         limit.rlim_cur = (size + 5) * 1000000;
         limit.rlim_max = (size + 5) * 1000000;
-        setrlimit(RLIMIT_STACK, &limit);
+        check(setrlimit(RLIMIT_STACK, &limit));
 
         char buffer[size];
 
@@ -182,7 +237,7 @@ int main(int argc, char *argv[])
         random_string_generator(buffer);
 
         //get time of when the transfer has started
-        gettimeofday(&start_time, NULL);
+        check(gettimeofday(&start_time, NULL));
 
         //writing buffer on pipe
         send_array(buffer);
@@ -196,10 +251,20 @@ int main(int argc, char *argv[])
 
     printf("\tsocket time: %d ms\n", transfer_time);
     fflush(stdout);
+    //write on log file
+    fprintf(logfile, "time: %d ms\n", transfer_time);
+    fflush(logfile);
 
     //close socket
-    close(fd_socket);
-    close(fd_socket_new);
+    check(close(fd_socket));
+    check(close(fd_socket_new));
+
+    //write on log file
+    fprintf(logfile, "p - socket closed\n");
+    fflush(logfile);
+
+    //close log file
+    fclose(logfile);
 
     return 0;
 }

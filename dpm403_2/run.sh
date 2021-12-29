@@ -38,12 +38,11 @@ get_circular_dimension(){
     echo
 
     #while CIRCULAR_SIZE < 1 or CIRCULAR_SIZE > 10 or CIRCULAR_SIZE is null or CIRCULAR_SIZE is not a number
-    while [ "$CIRCULAR_SIZE" -gt 10 ] || [ "$CIRCULAR_SIZE" -lt 1 ] || [ -z "$CIRCULAR_SIZE" ] || [[ ! "$CIRCULAR_SIZE" =~ ^[0-9]+$ ]] ;do 
+    while [ -z "$CIRCULAR_SIZE" ] || [ "$CIRCULAR_SIZE" -gt 10 ] || [ "$CIRCULAR_SIZE" -lt 1 ] || [[ ! "$CIRCULAR_SIZE" =~ ^[0-9]+$ ]] ;do 
     echo
     read -p "        Enter the circular buffer size in KB  (min 1KB - max 10KB): " CIRCULAR_SIZE
     echo
     done
-}
 
 #print program instruction
 display_instructions(){
@@ -99,9 +98,11 @@ case $CHOICE in
     1)
     cd ..
     cd named_pipe
+    rm named_pipe_log-old.txt -f
+    mv named_pipe_log.txt named_pipe_log-old.txt -f 2>/dev/null
     ./namedPipeProducer ${SIZE} ${MODE} & ./namedPipeConsumer ${SIZE} ${MODE}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;
@@ -109,9 +110,11 @@ case $CHOICE in
     2)
     cd ..
     cd unnamed_pipe
+    rm unnamed_pipe_log-old.txt -f
+    mv unnamed_pipe_log.txt unnamed_pipe_log-old.txt -f 2>/dev/null
     ./unnamedPipe ${SIZE} ${MODE}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;
@@ -119,9 +122,11 @@ case $CHOICE in
     3)
     cd ..
     cd socket
+    rm socket_log-old.txt -f
+    mv socket_log.txt socket_log-old.txt -f 2>/dev/null
     ./socketProducer ${SIZE} ${MODE} ${PORTNO} & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 ${PORTNO}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;
@@ -130,9 +135,11 @@ case $CHOICE in
     cd ..
     cd shared_memory
     get_circular_dimension
+    rm shared_memory_log-old.txt -f
+    mv shared_memory_log.txt shared_memory_log-old.txt -f 2>/dev/null
     ./sharedProducer ${SIZE} ${MODE} ${CIRCULAR_SIZE} & ./sharedConsumer ${SIZE} ${MODE} ${CIRCULAR_SIZE}
     #introduce very small delay to guarantee correct user interfacing
-    sleep 0.00001
+    sleep 0.001
     #fixed value that asks the user for another input
     CHOICE=-100
     ;;
