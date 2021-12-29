@@ -76,7 +76,7 @@ void receive_array(char buffer[])
             FD_ZERO(&readfds);
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_pipe, &readfds);
-        } while (check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout)) < 0);
+        } while (check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout)) <= 0);
 
         //read string from producer
         char segment[max_write_size];

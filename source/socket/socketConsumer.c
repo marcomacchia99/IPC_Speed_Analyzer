@@ -81,7 +81,7 @@ void receive_array(char buffer[])
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_socket, &readfds);
 
-        } while (select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout) < 0);
+        } while (check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout)) <= 0);
 
         //read string from producer
         char segment[MAX_WRITE_SIZE];

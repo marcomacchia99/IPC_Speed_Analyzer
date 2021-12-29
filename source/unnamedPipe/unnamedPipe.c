@@ -126,7 +126,7 @@ void receive_array(char buffer_consumer[])
             //add the selected file descriptor to the selected fd_set
             FD_SET(fd_pipe[0], &readfds);
 
-        } while (check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout)) < 0); //******* con select ci andrebbe ma non sono sicuro di come funzi con while dato che controlliamo <0 -> da guardare
+        } while (check(select(FD_SETSIZE + 1, &readfds, NULL, NULL, &timeout)) <= 0);
 
         //read string from producer
         char segment[max_write_size];
