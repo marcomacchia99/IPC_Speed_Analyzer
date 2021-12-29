@@ -99,6 +99,7 @@ case $CHOICE in
     ;;
 
     1)
+    #preserve precedent version of log and delete the older one
     cd ..
     cd logs
     rm named_pipe_log-old.txt -f
@@ -113,6 +114,7 @@ case $CHOICE in
     ;;
 
     2)
+    #preserve precedent version of log and delete the older one
     cd ..
     cd logs
     rm unnamed_pipe_log-old.txt -f
@@ -127,6 +129,7 @@ case $CHOICE in
     ;;
 
     3)
+    #preserve precedent version of log and delete the older one
     cd ..
     cd logs
     rm socket_log-old.txt -f
@@ -141,6 +144,7 @@ case $CHOICE in
     ;;
 
     4)
+    #preserve precedent version of log and delete the older one
     get_circular_dimension
     cd ..
     cd logs
