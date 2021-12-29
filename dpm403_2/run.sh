@@ -1,5 +1,7 @@
 #buffer size
 SIZE=1000
+#circular buffer size
+CIRCULAR_SIZE=1000
 #user input choice
 CHOICE=-1
 #memory mode
@@ -43,6 +45,7 @@ get_circular_dimension(){
     read -p "        Enter the circular buffer size in KB  (min 1KB - max 10KB): " CIRCULAR_SIZE
     echo
     done
+}
 
 #print program instruction
 display_instructions(){

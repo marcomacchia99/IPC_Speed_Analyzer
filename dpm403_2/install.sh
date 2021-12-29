@@ -2,12 +2,12 @@
 
 unzip -q source.zip -d $1
 
-cd $1/namedPipe
+cd $1/named_pipe
 gcc namedPipeProducer.c -o namedPipeProducer
 gcc namedPipeConsumer.c -o namedPipeConsumer
 
 cd ..
-cd unnamedPipe
+cd unnamed_pipe
 gcc unnamedPipe.c -o unnamedPipe
 
 cd ..
