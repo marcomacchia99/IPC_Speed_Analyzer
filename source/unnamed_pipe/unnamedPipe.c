@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
         printf("an error occured while creating Unnamed_pipe's log File\n");
         return 0;
     }
-    fprintf(logfile, "******log file created******\n");
+    fprintf(logfile, "starting process\n");
     fflush(logfile);
 
     //getting size from console
@@ -250,7 +250,7 @@ int main(int argc, char *argv[])
             receive_array(buffer_consumer);
 
             //delete buffer from memory
-            free(buffer_consumer); //**** in teoria check andrebbe ma non so che valori ritorna free
+            free(buffer_consumer);
         }
         else
         {

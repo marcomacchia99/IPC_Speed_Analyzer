@@ -113,8 +113,9 @@ int main(int argc, char *argv[])
         printf("an error occured while creating Named_pipe's 	log File\n");
         return 0;
     }
-    fprintf(logfile, "******log file created******\n");
+    fprintf(logfile, "starting producer\n");
     fflush(logfile);
+
 
     //getting size from console
     if (argc < 2)

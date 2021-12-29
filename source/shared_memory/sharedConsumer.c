@@ -131,6 +131,8 @@ int main(int argc, char *argv[])
         printf("an error occured while creating SharedMemory's log File\n");
         return 0;
     }
+    fprintf(logfile, "starting consumer\n");
+    fflush(logfile);
 
     //getting size from console
     if (argc < 2)

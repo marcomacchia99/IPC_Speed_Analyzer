@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
         printf("an error occured while creating sockets's log File\n");
         return 0;
     }
-    fprintf(logfile, "******log file created******\n");
+    fprintf(logfile, "starting producer\n");
     fflush(logfile);
 
     //getting size from console
@@ -130,6 +130,9 @@ int main(int argc, char *argv[])
         exit(0);
     }
     size = atoi(argv[1]) * 1000000;
+    //write on log file
+    fprintf(logfile, "producer - received size of %dMB\n", size);
+    fflush(logfile);
 
     //getting mode from console
     if (argc < 3)
@@ -138,6 +141,9 @@ int main(int argc, char *argv[])
         exit(0);
     }
     mode = atoi(argv[2]);
+    //write on log file
+    fprintf(logfile, "producer - received mode %d\n", mode);
+    fflush(logfile);
 
     //getting port number
     if (argc < 4)
@@ -146,6 +152,9 @@ int main(int argc, char *argv[])
         exit(0);
     }
     portno = atoi(argv[3]);
+    //write on log file
+    fprintf(logfile, "producer - received portno %d\n", portno);
+    fflush(logfile);
 
     //randomizing seed for random string generator
     srand(time(NULL));
