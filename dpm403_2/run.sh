@@ -100,9 +100,11 @@ case $CHOICE in
 
     1)
     cd ..
-    cd named_pipe
+    cd logs
     rm named_pipe_log-old.txt -f
     mv named_pipe_log.txt named_pipe_log-old.txt -f 2>/dev/null
+    cd ..
+    cd named_pipe
     ./namedPipeProducer ${SIZE} ${MODE} & ./namedPipeConsumer ${SIZE} ${MODE}
     #introduce very small delay to guarantee correct user interfacing
     sleep 0.001
@@ -112,9 +114,11 @@ case $CHOICE in
 
     2)
     cd ..
-    cd unnamed_pipe
+    cd logs
     rm unnamed_pipe_log-old.txt -f
     mv unnamed_pipe_log.txt unnamed_pipe_log-old.txt -f 2>/dev/null
+    cd ..
+    cd unnamed_pipe
     ./unnamedPipe ${SIZE} ${MODE}
     #introduce very small delay to guarantee correct user interfacing
     sleep 0.001
@@ -124,9 +128,11 @@ case $CHOICE in
 
     3)
     cd ..
-    cd socket
+    cd logs
     rm socket_log-old.txt -f
     mv socket_log.txt socket_log-old.txt -f 2>/dev/null
+    cd ..
+    cd socket
     ./socketProducer ${SIZE} ${MODE} ${PORTNO} & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 ${PORTNO}
     #introduce very small delay to guarantee correct user interfacing
     sleep 0.001
@@ -135,11 +141,13 @@ case $CHOICE in
     ;;
 
     4)
-    cd ..
-    cd shared_memory
     get_circular_dimension
+    cd ..
+    cd logs
     rm shared_memory_log-old.txt -f
     mv shared_memory_log.txt shared_memory_log-old.txt -f 2>/dev/null
+    cd ..
+    cd shared_memory
     ./sharedProducer ${SIZE} ${MODE} ${CIRCULAR_SIZE} & ./sharedConsumer ${SIZE} ${MODE} ${CIRCULAR_SIZE}
     #introduce very small delay to guarantee correct user interfacing
     sleep 0.001
