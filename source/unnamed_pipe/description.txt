@@ -1,4 +1,4 @@
-The Unamed pipe model uses an unnamed pipe to send the content of the A buffer, generated inside the producer process,
+The Unnamed pipe model uses an unnamed pipe to send the content of the A buffer, generated inside the producer process,
 to the consumer process, which then fills the B buffer.
 The two processes are createc using a fork: the producer process corresponds to the child and the consumer corresponds to the parent.
 To speed up the model, the pipe size limit is increased to his maximum, which is the resource number of file limit (RLIMIT_NOFILE).
