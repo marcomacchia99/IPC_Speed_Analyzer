@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
     //write on log file
-    fprintf(logfile, "consumer - received size of %dMB\n", size);
+    fprintf(logfile, "consumer - received size of %dMB\n", size/1000000);
     fflush(logfile);
 
     //getting mode from console
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
     }
     circular_size = atoi(argv[3]) * 1000;
     //write on log file
-    fprintf(logfile, "consumer - received circular size of %dKB\n", circular_size);
+    fprintf(logfile, "consumer - received circular size of %dKB\n", circular_size/1000);
     fflush(logfile);
 
     //receiving pid from producer

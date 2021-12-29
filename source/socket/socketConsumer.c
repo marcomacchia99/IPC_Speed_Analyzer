@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
     //write on log file
-    fprintf(logfile, "consumer - received size of %dMB\n", size);
+    fprintf(logfile, "consumer - received size of %dMB\n", size/1000000);
     fflush(logfile);
 
     //getting mode from console

@@ -116,7 +116,6 @@ int main(int argc, char *argv[])
     fprintf(logfile, "starting producer\n");
     fflush(logfile);
 
-
     //getting size from console
     if (argc < 2)
     {
@@ -125,7 +124,7 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
     //write on log file
-    fprintf(logfile, "producer - received size of %dMB\n", size);
+    fprintf(logfile, "producer - received size of %dMB\n", size/1000000);
     fflush(logfile);
 
     //getting mode from console
@@ -228,6 +227,17 @@ int main(int argc, char *argv[])
     //write on log file
     fprintf(logfile, "time: %d ms\n", transfer_time);
     fflush(logfile);
+
+    //writing elapsed time to general time file
+    FILE *timefile = fopen("./../logs/times.txt", "a");
+    if (timefile == NULL)
+    {
+        printf("\tan error occured while opening times file\n");
+        return 0;
+    }
+    fprintf(timefile, "named pipe - data size %dMB - time: %d ms\n", size/1000000, transfer_time);
+    fflush(timefile);
+    fclose(timefile);
 
     //close and delete fifo
     check(close(fd_pipe));

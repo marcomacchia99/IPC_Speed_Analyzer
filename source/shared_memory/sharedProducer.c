@@ -16,7 +16,7 @@
 
 #define BLOCK_NUM 100
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 //shared memory name
 const char *shm_name = "/AOS";
@@ -125,7 +125,7 @@ void send_array(char buffer[])
         sem_wait(not_full);
         sem_wait(mutex);
 
-        for (int k = 0; k < MIN(strlen(segment),block_size); k++)
+        for (int k = 0; k < MIN(strlen(segment), block_size); k++)
         {
             //write each character
             *shm_ptr = segment[k];
@@ -135,7 +135,6 @@ void send_array(char buffer[])
         //coordinate with producer
         sem_post(mutex);
         sem_post(not_empty);
-
     }
     //write on log file
     fprintf(logfile, "producer - array sent!\n");
@@ -154,7 +153,6 @@ int main(int argc, char *argv[])
     fprintf(logfile, "starting producer\n");
     fflush(logfile);
 
-
     //getting size from console
     if (argc < 2)
     {
@@ -163,7 +161,7 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
     //write on log file
-    fprintf(logfile, "producer - received size of %dMB\n", size);
+    fprintf(logfile, "producer - received size of %dMB\n", size/1000000);
     fflush(logfile);
 
     //getting mode from console
@@ -185,7 +183,7 @@ int main(int argc, char *argv[])
     }
     circular_size = atoi(argv[3]) * 1000;
     //write on log file
-    fprintf(logfile, "producer - received circular size of %dKB\n", circular_size);
+    fprintf(logfile, "producer - received circular size of %dKB\n", circular_size/1000);
     fflush(logfile);
 
     //randomizing seed for random string generator
@@ -310,6 +308,17 @@ int main(int argc, char *argv[])
     //write on log file
     fprintf(logfile, "time: %d ms\n", transfer_time);
     fflush(logfile);
+
+    //writing elapsed time to general time file
+    FILE *timefile = fopen("./../logs/times.txt", "a");
+    if (timefile == NULL)
+    {
+        printf("\tan error occured while opening times file\n");
+        return 0;
+    }
+    fprintf(timefile, "shared memory - data size %dMB - circular buffer size %dKB - time: %d ms\n", size/1000000,circular_size/1000, transfer_time);
+    fflush(timefile);
+    fclose(timefile);
 
     //close and delete semaphores
     check(sem_close(mutex));

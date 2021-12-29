@@ -26,3 +26,5 @@ In order to make clearer the code simple functions have been implemented to show
 of data transfer and the size of the circular buffer used. 
 
 For the correct visualization it has been chosen to show all the possible directives to guarantee an easy understanding to the user.
+
+A time file is generated inside the logs folder, in order to track every program execution and the duration of the data transit.
