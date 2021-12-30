@@ -7,7 +7,7 @@ CHOICE=-1
 #memory mode
 MODE=0
 #port no for socket
-PORTNO=5555
+PORTNO=51489
 
 #alternative echo colours
 RED='\033[1;31m'

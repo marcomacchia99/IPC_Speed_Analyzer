@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
     }
     size = atoi(argv[1]) * 1000000;
     //write on log file
-    fprintf(logfile, "producer - received size of %dMB\n", size/1000000);
+    fprintf(logfile, "producer - received size of %dMB\n", size / 1000000);
     fflush(logfile);
 
     //getting mode from console
@@ -177,7 +177,8 @@ int main(int argc, char *argv[])
     bzero((char *)&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(portno);
+    //server_addr.sin_port = htons(portno);
+    server_addr.sin_port = 0;
 
     //bind socket
     if (check(bind(fd_socket, (struct sockaddr *)&server_addr,
@@ -271,7 +272,7 @@ int main(int argc, char *argv[])
         printf("\tan error occured while opening times file\n");
         return 0;
     }
-    fprintf(timefile, "socket - data size %dMB - time: %d ms\n", size/1000000, transfer_time);
+    fprintf(timefile, "socket - data size %dMB - time: %d ms\n", size / 1000000, transfer_time);
     fflush(timefile);
     fclose(timefile);
 

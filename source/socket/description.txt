@@ -1,6 +1,6 @@
 The Socket model uses an internet socket to send the content of the A buffer, generated inside the producer process,
 to the consumer process, which then fills the B buffer.
 The communication is limited to 64K (65535) for each write/read operation, as it is the maximum data size in TCP protocol.
-The default value of the port is 5555, but it can be customized editing the related variable PORTNO in run.sh file.
+The default value of the port is 51489, but it can be customized editing the related variable PORTNO in run.sh file.
 Once the consumer has received all the data, it sends a SIGUSR1 signal to the producer (using its pid received via pipe),
 to notify that the transfer is complete and to proceed with che time measurement.
