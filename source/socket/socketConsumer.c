@@ -53,7 +53,7 @@ int check(int retval)
         {
             printf("\tError: address already in use. please change port\n");
             fflush(stdout);
-            exit(100);
+            exit(-100);
         }
         else
         {
