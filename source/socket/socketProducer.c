@@ -51,9 +51,19 @@ int check(int retval)
         fprintf(logfile, "\nProducer - ERROR (" __FILE__ ":%d) -- %s\n", __LINE__, strerror(errno));
         fflush(logfile);
         fclose(logfile);
-        printf("\tAn error has been reported on log file.\n");
-        fflush(stdout);
-        exit(-1);
+        if (errno == EADDRINUSE)
+        {
+            printf("\tError: address already in use. please change port\n");
+            fflush(stdout);
+            exit(100);
+        }
+        else
+        {
+
+            printf("\tAn error has been reported on log file.\n");
+            fflush(stdout);
+            exit(-1);
+        }
     }
     return retval;
 }
@@ -111,8 +121,22 @@ void send_array(char buffer[])
     fflush(logfile);
 }
 
+//when SIGTERM is sent to this process, close the socket and exit
+void close_socket(int sig)
+{
+    if (sig == SIGTERM)
+    {
+        //close sockets
+        close(fd_socket);
+        exit(-1);
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    //the process must handle SIGTERM signal
+    signal(SIGTERM, close_socket);
+
     //open log file in write mode
     logfile = fopen("./../logs/socket_log.txt", "a");
     if (logfile == NULL)
@@ -177,16 +201,11 @@ int main(int argc, char *argv[])
     bzero((char *)&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    //server_addr.sin_port = htons(portno);
-    server_addr.sin_port = 0;
+    server_addr.sin_port = htons(portno);
 
     //bind socket
-    if (check(bind(fd_socket, (struct sockaddr *)&server_addr,
-                   sizeof(server_addr))) < 0)
-    {
-
-        check(-1);
-    }
+    check(bind(fd_socket, (struct sockaddr *)&server_addr,
+               sizeof(server_addr)));
 
     //write on log file
     fprintf(logfile, "producer - socket bound\n");

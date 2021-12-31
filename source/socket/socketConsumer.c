@@ -49,9 +49,19 @@ int check(int retval)
         fprintf(logfile, "\nConsumer - ERROR (" __FILE__ ":%d) -- %s\n", __LINE__, strerror(errno));
         fflush(logfile);
         fclose(logfile);
-        printf("\tAn error has been reported on log file.\n");
-        fflush(stdout);
-        exit(-1);
+        if (errno == EADDRINUSE)
+        {
+            printf("\tError: address already in use. please change port\n");
+            fflush(stdout);
+            exit(100);
+        }
+        else
+        {
+
+            printf("\tAn error has been reported on log file.\n");
+            fflush(stdout);
+            exit(-1);
+        }
     }
     return retval;
 }
@@ -160,7 +170,6 @@ int main(int argc, char *argv[])
         check(-1);
     }
 
-
     //write on log file
     fprintf(logfile, "consumer - socket created\n");
     fflush(logfile);
@@ -185,10 +194,7 @@ int main(int argc, char *argv[])
     server_addr.sin_port = htons(portno);
 
     //open new connection
-    if (check(connect(fd_socket, (struct sockaddr *)&server_addr, sizeof(server_addr))) < 0)
-    {
-        check(-1);
-    }
+    check(connect(fd_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)));
 
     //write on log file
     fprintf(logfile, "consumer - connected to socket\n");

@@ -7,7 +7,7 @@ CHOICE=-1
 #memory mode
 MODE=0
 #port no for socket
-PORTNO=51489
+PORTNO=8080
 
 #alternative echo colours
 RED='\033[1;31m'
@@ -84,108 +84,123 @@ display_instructions(){
     echo
 }
 
-cd -- "$(find . -iname logs -type d)"
-get_dimension
-display_instructions
-
-
-#infinite loop
-while : ;do
-case $CHOICE in
-
-    0)
-    #quit program
-    exit 0
-    ;;
-
-    1)
-    #preserve precedent version of log and delete the older one
-    cd ..
-    cd logs
-    rm named_pipe_log-old.txt -f
-    mv named_pipe_log.txt named_pipe_log-old.txt -f 2>/dev/null
-    cd ..
-    cd named_pipe
-    ./namedPipeProducer ${SIZE} ${MODE} & ./namedPipeConsumer ${SIZE} ${MODE}
-    #introduce very small delay to guarantee correct user interfacing
-    sleep 0.001
-    #fixed value that asks the user for another input
-    CHOICE=-100
-    ;;
-
-    2)
-    #preserve precedent version of log and delete the older one
-    cd ..
-    cd logs
-    rm unnamed_pipe_log-old.txt -f
-    mv unnamed_pipe_log.txt unnamed_pipe_log-old.txt -f 2>/dev/null
-    cd ..
-    cd unnamed_pipe
-    ./unnamedPipe ${SIZE} ${MODE}
-    #introduce very small delay to guarantee correct user interfacing
-    sleep 0.001
-    #fixed value that asks the user for another input
-    CHOICE=-100
-    ;;
-
-    3)
-    #preserve precedent version of log and delete the older one
-    cd ..
-    cd logs
-    rm socket_log-old.txt -f
-    mv socket_log.txt socket_log-old.txt -f 2>/dev/null
-    cd ..
-    cd socket
-    ./socketProducer ${SIZE} ${MODE} ${PORTNO} & ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 ${PORTNO}
-    #introduce very small delay to guarantee correct user interfacing
-    sleep 0.001
-    #fixed value that asks the user for another input
-    CHOICE=-100
-    ;;
-
-    4)
-    #preserve precedent version of log and delete the older one
-    get_circular_dimension
-    cd ..
-    cd logs
-    rm shared_memory_log-old.txt -f
-    mv shared_memory_log.txt shared_memory_log-old.txt -f 2>/dev/null
-    cd ..
-    cd shared_memory
-    ./sharedProducer ${SIZE} ${MODE} ${CIRCULAR_SIZE} & ./sharedConsumer ${SIZE} ${MODE} ${CIRCULAR_SIZE}
-    #introduce very small delay to guarantee correct user interfacing
-    sleep 0.001
-    #fixed value that asks the user for another input
-    CHOICE=-100
-    ;;
-
-    5)
+FOLDER="$(find -iname logs -type d)"
+if [ -z "${FOLDER}" ]
+then
+    echo "Source is not unzipped yet."
+else
+    cd -- "$(find . -iname logs -type d)"
     get_dimension
-    #random value used to print again the instructions
-    CHOICE=-99
-    ;;
-
-    6)
-    #switch memory mode
-    if [[ "$MODE" -eq 0 ]]
-    then
-        MODE=1
-    else
-        MODE=0
-    fi
-    #random value used to print again the instructions
-    CHOICE=-99
-    ;;
-
-    -100)
-    #ask for another input
-    echo
-    read -p "Enter your choice: " CHOICE
-    echo
-    ;;
-
-    *)
     display_instructions
-    ;;
-esac
-done
+
+
+    #infinite loop
+    while : ;do
+    case $CHOICE in
+
+        0)
+        #quit program
+        exit 0
+        ;;
+
+        1)
+        #preserve precedent version of log and delete the older one
+        cd ..
+        cd logs
+        rm named_pipe_log-old.txt -f
+        mv named_pipe_log.txt named_pipe_log-old.txt -f 2>/dev/null
+        cd ..
+        cd named_pipe
+        ./namedPipeProducer ${SIZE} ${MODE} & ./namedPipeConsumer ${SIZE} ${MODE}
+        #introduce very small delay to guarantee correct user interfacing
+        sleep 0.001
+        #fixed value that asks the user for another input
+        CHOICE=-100
+        ;;
+
+        2)
+        #preserve precedent version of log and delete the older one
+        cd ..
+        cd logs
+        rm unnamed_pipe_log-old.txt -f
+        mv unnamed_pipe_log.txt unnamed_pipe_log-old.txt -f 2>/dev/null
+        cd ..
+        cd unnamed_pipe
+        ./unnamedPipe ${SIZE} ${MODE}
+        #introduce very small delay to guarantee correct user interfacing
+        sleep 0.001
+        #fixed value that asks the user for another input
+        CHOICE=-100
+        ;;
+
+        3)
+        #preserve precedent version of log and delete the older one
+        cd ..
+        cd logs
+        rm socket_log-old.txt -f
+        mv socket_log.txt socket_log-old.txt -f 2>/dev/null
+        cd ..
+        cd socket
+        ./socketProducer ${SIZE} ${MODE} ${PORTNO} & 
+        #get socket producer pid
+        SOCKETPID="$!"
+        ./socketConsumer ${SIZE} ${MODE} 127.0.0.1 ${PORTNO}
+        #in case of an error kill socket producer (close socket)
+        if [ $? -eq 255 ]
+        then
+        kill $SOCKETPID 2>/dev/null
+        fi
+
+        #introduce very small delay to guarantee correct user interfacing
+        sleep 0.001
+        #fixed value that asks the user for another input
+        CHOICE=-100
+        ;;
+
+        4)
+        #preserve precedent version of log and delete the older one
+        get_circular_dimension
+        cd ..
+        cd logs
+        rm shared_memory_log-old.txt -f
+        mv shared_memory_log.txt shared_memory_log-old.txt -f 2>/dev/null
+        cd ..
+        cd shared_memory
+        ./sharedProducer ${SIZE} ${MODE} ${CIRCULAR_SIZE} & ./sharedConsumer ${SIZE} ${MODE} ${CIRCULAR_SIZE}
+        #introduce very small delay to guarantee correct user interfacing
+        sleep 0.001
+        #fixed value that asks the user for another input
+        CHOICE=-100
+        ;;
+
+        5)
+        get_dimension
+        #random value used to print again the instructions
+        CHOICE=-99
+        ;;
+
+        6)
+        #switch memory mode
+        if [[ "$MODE" -eq 0 ]]
+        then
+            MODE=1
+        else
+            MODE=0
+        fi
+        #random value used to print again the instructions
+        CHOICE=-99
+        ;;
+
+        -100)
+        #ask for another input
+        echo
+        read -p "Enter your choice: " CHOICE
+        echo
+        ;;
+
+        *)
+        display_instructions
+        ;;
+    esac
+    done
+fi
